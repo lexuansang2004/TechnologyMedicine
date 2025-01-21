@@ -1,4 +1,4 @@
-﻿-- Tạo cơ sở dữ liệu QuanLyThuoc
+-- Tạo cơ sở dữ liệu QuanLyThuoc
 CREATE DATABASE QuanLyThuoc;
 GO
 
@@ -11,7 +11,7 @@ CREATE TABLE KhachHang (
     maKhachHang NVARCHAR(50) PRIMARY KEY,
     tenKhachHang NVARCHAR(100),
     soDienThoai NVARCHAR(20),
-    gioiTinh NVARCHAR(10)
+    gioiTinh BIT
 );
 
 -- Tạo bảng NhanVien
@@ -19,7 +19,7 @@ CREATE TABLE NhanVien (
     maNhanVien NVARCHAR(50) PRIMARY KEY,
     tenNhanVien NVARCHAR(100),
     soDienThoai NVARCHAR(20),
-    gioiTinh NVARCHAR(10),
+    gioiTinh BIT,
     namSinh INT,
     chucVu BIT
 );
@@ -104,15 +104,15 @@ GO
 -- Chèn dữ liệu mẫu vào bảng KhachHang
 INSERT INTO KhachHang (maKhachHang, tenKhachHang, soDienThoai, gioiTinh)
 VALUES 
-('KH001', 'Nguyễn Văn A', '0912345678', 'Nam'),
-('KH002', 'Trần Thị B', '0987654321', 'Nữ'),
-('KH003', 'Phạm Văn C', '0901122334', 'Nam');
+('KH001', N'Nguyễn Văn A', '0912345678', 1),  -- 1 là Nam
+('KH002', N'Trần Thị B', '0987654321', 0),  -- 0 là Nữ
+('KH003', N'Phạm Văn C', '0901122334', 1);  -- 1 là Nam
 
 -- Chèn dữ liệu mẫu vào bảng NhanVien
 INSERT INTO NhanVien (maNhanVien, tenNhanVien, soDienThoai, gioiTinh, namSinh, chucVu)
 VALUES 
-('NV001', 'Lê Văn D', '0932123456', 'Nam', 1990, 1),
-('NV002', 'Hoàng Thị E', '0977654321', 'Nữ', 1995, 0);
+('NV001', N'Lê Văn D', '0932123456', 1, 1990, 1),  -- 1 là Nam, 1 là Chức vụ (ví dụ: quản lý)
+('NV002', N'Hoàng Thị E', '0977654321', 0, 1995, 0);  -- 0 là Nữ, 0 là Chức vụ (ví dụ: nhân viên)
 
 -- Chèn dữ liệu mẫu vào bảng TaiKhoan
 INSERT INTO TaiKhoan (maTaiKhoan, tenDangNhap, matKhau, maNhanVien)
@@ -123,15 +123,15 @@ VALUES
 -- Chèn dữ liệu mẫu vào bảng Thuoc
 INSERT INTO Thuoc (maThuoc, tenThuoc, hinhAnh, xuatXu, thanhPhan, soLuongTon, giaNhap, thue, donGia, danhMuc)
 VALUES 
-('T001', 'Paracetamol', NULL, 'Việt Nam', 'Paracetamol 500mg', 100, 2000, 0.05, 2500, 'Thuốc giảm đau'),
-('T002', 'Aspirin', NULL, 'Pháp', 'Acid Acetylsalicylic', 50, 3000, 0.1, 3500, 'Thuốc chống viêm'),
-('T003', 'Vitamin C', NULL, 'Mỹ', 'Vitamin C 500mg', 200, 1500, 0.05, 1800, 'Thuốc bổ sung');
+('T001', N'Paracetamol', NULL, N'Việt Nam', N'Paracetamol 500mg', 100, 2000, 0.05, 2500, N'Thuốc giảm đau'),
+('T002', N'Aspirin', NULL, N'Pháp', N'Acid Acetylsalicylic', 50, 3000, 0.1, 3500, N'Thuốc chống viêm'),
+('T003', N'Vitamin C', NULL, N'Mỹ', N'Vitamin C 500mg', 200, 1500, 0.05, 1800, N'Thuốc bổ sung');
 
 -- Chèn dữ liệu mẫu vào bảng NhaCungCap
 INSERT INTO NhaCungCap (maNCC, tenNhaCungCap, soDienThoai, email, diaChi)
 VALUES 
-('NCC001', 'Công ty Dược A', '0912233445', 'duoca@example.com', 'Hà Nội'),
-('NCC002', 'Công ty Dược B', '0988765432', 'duocb@example.com', 'TP.HCM');
+('NCC001', N'Công ty Dược A', '0912233445', 'duoca@example.com', N'Hà Nội'),
+('NCC002', N'Công ty Dược B', '0988765432', 'duocb@example.com', N'TP.HCM');
 
 -- Chèn dữ liệu mẫu vào bảng HoaDon
 INSERT INTO HoaDon (maHoaDon, thoiGian, trangThai, maKhachHang, maNhanVien)
