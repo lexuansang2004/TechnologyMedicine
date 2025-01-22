@@ -45,7 +45,10 @@ public class ThuocDAO {
         EntityTransaction tr = em.getTransaction();
         try {
             tr.begin();
-            em.remove(em.merge(maThuoc));
+            Thuoc thuoc = em.find(Thuoc.class, maThuoc);
+            if (thuoc != null) {
+                em.remove(thuoc);
+            }
             tr.commit();
             return true;
         } catch (Exception ex) {
@@ -62,17 +65,27 @@ public class ThuocDAO {
         return em.createQuery(query, Thuoc.class).getResultList();
     }
 
-    public List<Thuoc> getById(String id) {
-        String query = "SELECT t FROM Thuoc t WHERE t.id = :id";
-        return em.createQuery(query, Thuoc.class).setParameter("id", id).getResultList();
+    public Thuoc getById(String id) {
+        return em.find(Thuoc.class, id);
     }
 
     public List<Thuoc> getByName(String tenThuoc) {
+        if (tenThuoc == null || tenThuoc.trim().isEmpty()) {
+            return List.of();
+        }
         String query = "SELECT t FROM Thuoc t WHERE t.tenThuoc LIKE :tenThuoc";
-        return em.createQuery(query, Thuoc.class).setParameter("tenThuoc", "%" + tenThuoc + "%").getResultList();
+        return em.createQuery(query, Thuoc.class)
+                .setParameter("tenThuoc", "%" + tenThuoc + "%")
+                .getResultList();
     }
     public List<Thuoc> getByPriceRange(double min, double max) {
+        if (min < 0 || max < 0 || min > max) {
+            throw new IllegalArgumentException("Phạm vi giá không hợp lệ.");
+        }
         String query = "SELECT t FROM Thuoc t WHERE t.giaThuoc BETWEEN :min AND :max";
-        return em.createQuery(query, Thuoc.class).setParameter("min", min).setParameter("max", max).getResultList();
+        return em.createQuery(query, Thuoc.class)
+                .setParameter("min", min)
+                .setParameter("max", max)
+                .getResultList();
     }
 }

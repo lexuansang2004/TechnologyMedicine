@@ -21,7 +21,7 @@ dependencies {
     implementation("net.datafaker:datafaker:2.4.2")
     implementation("com.microsoft.sqlserver:mssql-jdbc:12.9.0.jre11-preview")
     implementation("org.mariadb.jdbc:mariadb-java-client:3.5.1")
-    implementation("org.hibernate.orm:hibernate-core:7.0.0.Beta3")
+    implementation("org.hibernate.orm:hibernate-core:6.2.6.Final")
 }
 
 tasks.test {

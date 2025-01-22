@@ -41,7 +41,7 @@ public class NhanVienDAO {
         }
         return false;
     }
-    public boolean delete(NhanVien nhanVien) {
+    public boolean delete(String nhanVien) {
         EntityTransaction tr = em.getTransaction();
         try {
             tr.begin();
@@ -61,12 +61,18 @@ public class NhanVienDAO {
         String query = "SELECT t FROM NhanVien t";
         return em.createQuery(query, NhanVien.class).getResultList();
     }
-    public NhanVien getById(String maNV) {
-        String query = "SELECT t FROM NhanVien t WHERE t.maNV = :maNV";
-        return em.createQuery(query, NhanVien.class).setParameter("maNV", maNV).getSingleResult();
+    public List<NhanVien> getById(String maNV) {
+        String query = "SELECT n FROM NhanVien n WHERE n.id = :maNV";
+        return em.createQuery(query, NhanVien.class)
+                .setParameter("maNV", maNV)
+                .getResultList();
     }
-    public NhanVien getByName(String tenNV) {
+
+
+    public List<NhanVien> getByName(String tenNV) {
         String query = "SELECT t FROM NhanVien t WHERE t.hoTen LIKE :tenNV";
-        return em.createQuery(query, NhanVien.class).setParameter("tenNV", "%" + tenNV + "%").getSingleResult();
+        return em.createQuery(query, NhanVien.class)
+                .setParameter("tenNV", "%" + tenNV + "%")
+                .getResultList();
     }
 }

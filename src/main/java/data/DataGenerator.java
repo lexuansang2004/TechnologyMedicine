@@ -8,7 +8,9 @@ import net.datafaker.Faker;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class DataGenerator {
@@ -19,22 +21,22 @@ public class DataGenerator {
     public static int maThuocCount = 1;
 
     public DataGenerator() {
-        this.faker = new Faker(); // Khởi tạo Faker trong constructor
+        this.faker = new Faker();
     }
 
-    private String gererateMaHD() {
+    private String generateMaHD() {
         return String.format("HD%06d", maHDCount++);
     }
 
-    private String gererateMaNV() {
+    private String generateMaNV() {
         return String.format("NV%06d", maNVCount++);
     }
 
-    private String gererateMaKH() {
+    private String generateMaKH() {
         return String.format("KH%06d", maKHCount++);
     }
 
-    private String gererateMaThuoc() {
+    private String generateMaThuoc() {
         return String.format("SP%06d", maThuocCount++);
     }
 
@@ -57,9 +59,9 @@ public class DataGenerator {
         return LocalDate.ofEpochDay(randomDay);
     }
 
-    public KhachHang gererateKH() {
+    public KhachHang generateKH() {
         KhachHang khachHang = new KhachHang();
-        khachHang.setId(gererateMaKH());
+        khachHang.setId(generateMaKH());
         khachHang.setHoTen(faker.name().fullName());
         khachHang.setSdt(faker.phoneNumber().phoneNumber());
         khachHang.setGioiTinh(faker.options().option(GioiTinh.class));
@@ -69,9 +71,9 @@ public class DataGenerator {
         return khachHang;
     }
 
-    public NhanVien gererateNV() {
+    public NhanVien generateNV() {
         NhanVien nhanVien = new NhanVien();
-        nhanVien.setId(gererateMaNV());
+        nhanVien.setId(generateMaNV());
         nhanVien.setHoTen(faker.name().fullName());
         nhanVien.setSdt(faker.phoneNumber().phoneNumber());
         nhanVien.setEmail(faker.internet().emailAddress());
@@ -82,16 +84,16 @@ public class DataGenerator {
         return nhanVien;
     }
 
-    public TaiKhoan gererateTK(NhanVien nhanVien) {
+    public TaiKhoan generateTK(NhanVien nhanVien) {
         TaiKhoan taiKhoan = new TaiKhoan();
         taiKhoan.setNhanVien(nhanVien);
         taiKhoan.setPassword(faker.internet().password(8, 16));
         return taiKhoan;
     }
 
-    private Thuoc gererateThuoc() {
+    private Thuoc generateThuoc() {
         Thuoc thuoc = new Thuoc();
-        thuoc.setId(gererateMaThuoc());
+        thuoc.setId(generateMaThuoc());
         thuoc.setTenThuoc(faker.medication().drugName());
         thuoc.setThanhPhan(String.join(", ", faker.lorem().words(3)));
         thuoc.setDonViTinh(faker.options().option(DonViTinh.class));
@@ -102,16 +104,16 @@ public class DataGenerator {
         return thuoc;
     }
 
-    public HoaDon gererateHD(KhachHang khachHang, NhanVien nhanVien) {
+    public HoaDon generateHD(KhachHang khachHang, NhanVien nhanVien) {
         HoaDon hoaDon = new HoaDon();
-        hoaDon.setId(gererateMaHD());
+        hoaDon.setId(generateMaHD());
         hoaDon.setNgayTaoHD(LocalDate.now());
         hoaDon.setKhachHang(khachHang);
         hoaDon.setNhanVien(nhanVien);
         return hoaDon;
     }
 
-    public ChiTietHoaDon gererateChiTietHD(Thuoc thuoc, HoaDon hoaDon) {
+    public ChiTietHoaDon generateChiTietHD(Thuoc thuoc, HoaDon hoaDon) {
         ChiTietHoaDon chiTietHoaDon = new ChiTietHoaDon();
         chiTietHoaDon.setHoaDon(hoaDon);
         chiTietHoaDon.setThuoc(thuoc);
@@ -123,27 +125,46 @@ public class DataGenerator {
     public void generateData() {
         EntityManager em = Persistence.createEntityManagerFactory("mariadb").createEntityManager();
         EntityTransaction tr = em.getTransaction();
-        for (int i = 0; i < 10; i++) {
-            tr.begin();
-            KhachHang khachHang = gererateKH();
-            em.persist(khachHang);
-            NhanVien nhanVien = gererateNV();
-            em.persist(nhanVien);
-            TaiKhoan taiKhoan = gererateTK(nhanVien);
-            em.persist(taiKhoan);
+        try {
+            for (int i = 0; i < 10; i++) {
+                tr.begin();
+                KhachHang khachHang = generateKH();
+                em.persist(khachHang);
+                em.flush();
 
-            for (int j = 0; j < 10; j++) {
-                Thuoc thuoc = gererateThuoc();
-                em.persist(thuoc);
+                NhanVien nhanVien = generateNV();
+                em.persist(nhanVien);
+                em.flush();
+
+                TaiKhoan taiKhoan = generateTK(nhanVien);
+                em.persist(taiKhoan);
+                em.flush();
+
+                List<Thuoc> thuocList = new ArrayList<>();
+
+                for (int j = 0; j < 10; j++) {
+                    Thuoc thuoc = generateThuoc();
+                    em.persist(thuoc);
+                    em.flush();
+                    thuocList.add(thuoc);
+                }
+
+                HoaDon hoaDon = generateHD(khachHang, nhanVien);
+                em.persist(hoaDon);
+                em.flush();
+
+                for (int j = 0; j < 10; j++) {
+                    ChiTietHoaDon chiTietHoaDon = generateChiTietHD(thuocList.get(j), hoaDon);
+                    em.persist(chiTietHoaDon);
+                    em.flush();
+                }
+                tr.commit();
             }
-
-            HoaDon hoaDon = gererateHD(khachHang, nhanVien);
-            em.persist(hoaDon);
-
-            for (int j = 0; j < 10; j++) {
-                em.persist(gererateChiTietHD(gererateThuoc(), hoaDon));
-            }
-            tr.commit();
+        } catch (Exception e) {
+            tr.rollback();
+            e.printStackTrace();
+        } finally {
+            em.close();
         }
     }
 
