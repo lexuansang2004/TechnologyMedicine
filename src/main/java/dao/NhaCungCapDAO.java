@@ -1,7 +1,6 @@
 package dao;
 
-import entities.HoaDon;
-import entities.ChiTietHoaDon;
+import entities.NhaCungCap;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityTransaction;
 import lombok.AllArgsConstructor;
@@ -9,17 +8,48 @@ import lombok.AllArgsConstructor;
 import java.util.List;
 
 @AllArgsConstructor
-public class HoaDonDAO {
+public class NhaCungCapDAO {
     private EntityManager em;
 
-    public boolean createHoaDon(HoaDon hoaDon, List<ChiTietHoaDon> chiTietHoaDonList) {
+    public boolean createNhaCungCap(NhaCungCap nhaCungCap) {
         EntityTransaction tr = em.getTransaction();
         try {
             tr.begin();
-            em.persist(hoaDon);
-            for (ChiTietHoaDon chiTiet : chiTietHoaDonList) {
-                chiTiet.setHoaDon(hoaDon); // Set HoaDon cho từng ChiTietHoaDon
-                em.persist(chiTiet);
+            em.persist(nhaCungCap);
+            tr.commit();
+            return true;
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            if (tr.isActive()) {
+                tr.rollback();
+            }
+        }
+        return false;
+    }
+
+    public boolean updateNhaCungCap(NhaCungCap nhaCungCap) {
+        EntityTransaction tr = em.getTransaction();
+        try {
+            tr.begin();
+            em.merge(nhaCungCap);
+            tr.commit();
+            return true;
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            if (tr.isActive()) {
+                tr.rollback();
+            }
+        }
+        return false;
+    }
+
+    public boolean deleteNhaCungCap(Long id) {
+        EntityTransaction tr = em.getTransaction();
+        try {
+            tr.begin();
+            NhaCungCap nhaCungCap = em.find(NhaCungCap.class, id);
+            if (nhaCungCap != null) {
+                em.remove(nhaCungCap);
             }
             tr.commit();
             return true;
@@ -32,53 +62,20 @@ public class HoaDonDAO {
         return false;
     }
 
-    public boolean updateHoaDon(HoaDon hoaDon, List<ChiTietHoaDon> chiTietHoaDonList) {
-        EntityTransaction tr = em.getTransaction();
-        try {
-            tr.begin();
-            em.merge(hoaDon);
-            for (ChiTietHoaDon chiTiet : chiTietHoaDonList) {
-                em.merge(chiTiet);
-            }
-            tr.commit();
-            return true;
-        } catch (Exception ex) {
-            ex.printStackTrace();
-            if (tr.isActive()) {
-                tr.rollback();
-            }
-        }
-        return false;
+    public List<NhaCungCap> getAll() {
+        String query = "SELECT n FROM NhaCungCap n";
+        return em.createQuery(query, NhaCungCap.class).getResultList();
     }
 
-    public boolean deleteHoaDon(String maHoaDon) {
-        EntityTransaction tr = em.getTransaction();
-        try {
-            tr.begin();
-            HoaDon hoaDon = em.find(HoaDon.class, maHoaDon);
-            if (hoaDon != null) {
-                for (ChiTietHoaDon chiTiet : hoaDon.getChiTietHoaDonList()) {
-                    em.remove(chiTiet);
-                }
-                em.remove(hoaDon);
-            }
-            tr.commit();
-            return true;
-        } catch (Exception ex) {
-            ex.printStackTrace();
-            if (tr.isActive()) {
-                tr.rollback();
-            }
-        }
-        return false;
+    public NhaCungCap getById(Long id) {
+        return em.find(NhaCungCap.class, id);
     }
 
-    public List<HoaDon> getAll() {
-        String query = "SELECT t FROM HoaDon t";
-        return em.createQuery(query, HoaDon.class).getResultList();
-    }
-
-    public HoaDon getById(String maHoaDon) {
-        return em.find(HoaDon.class, maHoaDon);
+    public NhaCungCap getByMaNhaCungCap(String maNhaCungCap) {
+        String query = "SELECT n FROM NhaCungCap n WHERE n.maNhaCungCap = :maNhaCungCap";
+        List<NhaCungCap> result = em.createQuery(query, NhaCungCap.class)
+                .setParameter("maNhaCungCap", maNhaCungCap)
+                .getResultList();
+        return result.isEmpty() ? null : result.get(0);
     }
 }

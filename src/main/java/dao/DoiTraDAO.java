@@ -1,7 +1,8 @@
 package dao;
 
-import entities.HoaDon;
 import entities.ChiTietHoaDon;
+import entities.DoiTra;
+import entities.ChiTietDoiTra;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityTransaction;
 import lombok.AllArgsConstructor;
@@ -9,16 +10,16 @@ import lombok.AllArgsConstructor;
 import java.util.List;
 
 @AllArgsConstructor
-public class HoaDonDAO {
+public class DoiTraDAO {
     private EntityManager em;
 
-    public boolean createHoaDon(HoaDon hoaDon, List<ChiTietHoaDon> chiTietHoaDonList) {
+    public boolean create(DoiTra doiTra, List<ChiTietDoiTra> chiTietDoiTraList) {
         EntityTransaction tr = em.getTransaction();
         try {
             tr.begin();
-            em.persist(hoaDon);
-            for (ChiTietHoaDon chiTiet : chiTietHoaDonList) {
-                chiTiet.setHoaDon(hoaDon); // Set HoaDon cho từng ChiTietHoaDon
+            em.persist(doiTra);
+            for (ChiTietDoiTra chiTiet : chiTietDoiTraList) {
+                chiTiet.setDoiTra(doiTra); // Set DoiTra cho từng ChiTietDoiTra
                 em.persist(chiTiet);
             }
             tr.commit();
@@ -32,12 +33,12 @@ public class HoaDonDAO {
         return false;
     }
 
-    public boolean updateHoaDon(HoaDon hoaDon, List<ChiTietHoaDon> chiTietHoaDonList) {
+    public boolean update(DoiTra doiTra, List<ChiTietDoiTra> chiTietDoiTraList) {
         EntityTransaction tr = em.getTransaction();
         try {
             tr.begin();
-            em.merge(hoaDon);
-            for (ChiTietHoaDon chiTiet : chiTietHoaDonList) {
+            em.merge(doiTra);
+            for (ChiTietDoiTra chiTiet : chiTietDoiTraList) {
                 em.merge(chiTiet);
             }
             tr.commit();
@@ -51,16 +52,16 @@ public class HoaDonDAO {
         return false;
     }
 
-    public boolean deleteHoaDon(String maHoaDon) {
+    public boolean delete(String maDoiTra) {
         EntityTransaction tr = em.getTransaction();
         try {
             tr.begin();
-            HoaDon hoaDon = em.find(HoaDon.class, maHoaDon);
-            if (hoaDon != null) {
-                for (ChiTietHoaDon chiTiet : hoaDon.getChiTietHoaDonList()) {
+            DoiTra doiTra = em.find(DoiTra.class, maDoiTra);
+            if (doiTra != null) {
+                for (ChiTietDoiTra chiTiet : doiTra.getChiTietDoiTraList()) {
                     em.remove(chiTiet);
                 }
-                em.remove(hoaDon);
+                em.remove(doiTra);
             }
             tr.commit();
             return true;
@@ -73,12 +74,20 @@ public class HoaDonDAO {
         return false;
     }
 
-    public List<HoaDon> getAll() {
-        String query = "SELECT t FROM HoaDon t";
-        return em.createQuery(query, HoaDon.class).getResultList();
+    public List<DoiTra> getAll() {
+        String query = "SELECT d FROM DoiTra d";
+        return em.createQuery(query, DoiTra.class).getResultList();
     }
 
-    public HoaDon getById(String maHoaDon) {
-        return em.find(HoaDon.class, maHoaDon);
+    public DoiTra getById(String maDoiTra) {
+        return em.find(DoiTra.class, maDoiTra);
+    }
+
+    public DoiTra getByMaDoiTra(String maDoiTra) {
+        String query = "SELECT d FROM DoiTra d WHERE d.id = :maDoiTra";
+        List<DoiTra> result = em.createQuery(query, DoiTra.class)
+                .setParameter("maDoiTra", maDoiTra)
+                .getResultList();
+        return result.isEmpty() ? null : result.get(0);
     }
 }

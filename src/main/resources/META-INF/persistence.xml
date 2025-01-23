@@ -13,6 +13,12 @@
     <class>entities.NhanVien</class>
     <class>entities.TaiKhoan</class>
     <class>entities.Thuoc</class>
+    <class>entities.DoiTra</class>
+    <class>entities.ChiTietDoiTra</class>
+    <class>entities.TrangThai</class>
+    <class>entities.NhaCungCap</class>
+    <class>entities.ChiTietPhieuNhap</class>
+    <class>entities.PhieuNhap</class>
     <properties>
       <property name="jakarta.persistence.jdbc.url"
                 value="jdbc:mariadb://localhost:3306/medicinetechnology" />
@@ -37,6 +43,12 @@
     <class>entities.NhanVien</class>
     <class>entities.TaiKhoan</class>
     <class>entities.Thuoc</class>
+    <class>entities.DoiTra</class>
+    <class>entities.ChiTietDoiTra</class>
+    <class>entities.TrangThai</class>
+    <class>entities.NhaCungCap</class>
+    <class>entities.ChiTietPhieuNhap</class>
+    <class>entities.PhieuNhap</class>
     <properties>
       <property name="jakarta.persistence.jdbc.url"
                 value="jdbc:sqlserver://localhost:1433;databaseName=medicinetechnology;trustServerCertificate=

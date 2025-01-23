@@ -7,6 +7,7 @@ import jakarta.persistence.Persistence;
 import net.datafaker.Faker;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Date;
@@ -15,29 +16,75 @@ import java.util.concurrent.ThreadLocalRandom;
 
 public class DataGenerator {
     private final Faker faker; // Khởi tạo faker như một biến final
+    private final EntityManager em; // Khởi tạo EntityManager như một biến thành viên
+
     public static int maHDCount = 1;
     public static int maNVCount = 1;
     public static int maKHCount = 1;
     public static int maThuocCount = 1;
+    public static int maDoiTraCount = 1;
+    public static int maPhieuNhapCount = 1;
+    public static int maNCCCount = 1;
 
     public DataGenerator() {
         this.faker = new Faker();
+        this.em = Persistence.createEntityManagerFactory("mariadb").createEntityManager(); // Khởi tạo EntityManager
     }
 
     private String generateMaHD() {
-        return String.format("HD%06d", maHDCount++);
+        String maHD;
+        do {
+            maHD = String.format("HD%06d", maHDCount++);
+        } while (em.find(HoaDon.class, maHD) != null); // Kiểm tra nếu ID đã tồn tại
+        return maHD;
+    }
+
+    private String generateMaNCC() {
+        String maNCC;
+        do {
+            maNCC = String.format("NCC%06d", maNCCCount++);
+        } while (em.find(HoaDon.class, maNCC) != null); // Kiểm tra nếu ID đã tồn tại
+        return maNCC;
     }
 
     private String generateMaNV() {
-        return String.format("NV%06d", maNVCount++);
+        String maNV;
+        do {
+            maNV = String.format("NV%06d", maNVCount++);
+        } while (em.find(NhanVien.class, maNV) != null); // Kiểm tra nếu ID đã tồn tại
+        return maNV;
     }
 
     private String generateMaKH() {
-        return String.format("KH%06d", maKHCount++);
+        String maKH;
+        do {
+            maKH = String.format("KH%06d", maKHCount++);
+        } while (em.find(KhachHang.class, maKH) != null); // Kiểm tra nếu ID đã tồn tại
+        return maKH;
     }
 
     private String generateMaThuoc() {
-        return String.format("SP%06d", maThuocCount++);
+        String maThuoc;
+        do {
+            maThuoc = String.format("SP%06d", maThuocCount++);
+        } while (em.find(Thuoc.class, maThuoc) != null); // Kiểm tra nếu ID đã tồn tại
+        return maThuoc;
+    }
+
+    private String generateMaDoiTra() {
+        String maDoiTra;
+        do {
+            maDoiTra = String.format("DT%06d", maDoiTraCount++);
+        } while (em.find(DoiTra.class, maDoiTra) != null); // Kiểm tra nếu ID đã tồn tại
+        return maDoiTra;
+    }
+
+    private String generateMaPhieuNhap() {
+        String maPhieuNhap;
+        do {
+            maPhieuNhap = String.format("PN%06d", maPhieuNhapCount++);
+        } while (em.find(DoiTra.class, maPhieuNhap) != null); // Kiểm tra nếu ID đã tồn tại
+        return maPhieuNhap;
     }
 
     private Date generateRandomDateWithinLast10Years() {
@@ -69,6 +116,16 @@ public class DataGenerator {
         khachHang.setHangMuc(faker.options().option(HangMuc.class));
         khachHang.setTongChiTieu(faker.number().randomDouble(2, 1000, 1000000));
         return khachHang;
+    }
+
+    public NhaCungCap generateNCC() {
+        NhaCungCap nhaCungCap = new NhaCungCap();
+        nhaCungCap.setId(generateMaNCC());
+        nhaCungCap.setTenNCC(faker.name().fullName());
+        nhaCungCap.setSdt(faker.phoneNumber().phoneNumber());
+        nhaCungCap.setEmail(faker.internet().emailAddress());
+        nhaCungCap.setDiaChi(faker.address().fullAddress());
+        return nhaCungCap;
     }
 
     public NhanVien generateNV() {
@@ -107,7 +164,7 @@ public class DataGenerator {
     public HoaDon generateHD(KhachHang khachHang, NhanVien nhanVien) {
         HoaDon hoaDon = new HoaDon();
         hoaDon.setId(generateMaHD());
-        hoaDon.setNgayTaoHD(LocalDate.now());
+        hoaDon.setNgayTaoHD(LocalDateTime.now());
         hoaDon.setKhachHang(khachHang);
         hoaDon.setNhanVien(nhanVien);
         return hoaDon;
@@ -122,8 +179,44 @@ public class DataGenerator {
         return chiTietHoaDon;
     }
 
+    public DoiTra generateDT(KhachHang khachHang, NhanVien nhanVien) {
+        DoiTra doiTra = new DoiTra();
+        doiTra.setId(generateMaDoiTra());
+        doiTra.setNgayDoiTra(LocalDateTime.now());
+        doiTra.setKhachHang(khachHang);
+        doiTra.setNhanVien(nhanVien);
+        doiTra.setTrangThai(faker.options().option(TrangThai.values()));  // Tạo trạng thái ngẫu nhiên cho trangThai
+        return doiTra;
+    }
+
+    public ChiTietDoiTra generateChiTietDT(Thuoc thuoc, DoiTra doiTra) {
+        ChiTietDoiTra chiTietDoiTra = new ChiTietDoiTra();
+        chiTietDoiTra.setDoiTra(doiTra);
+        chiTietDoiTra.setThuoc(thuoc);
+        chiTietDoiTra.setSoLuong(faker.number().numberBetween(1, 100));
+        chiTietDoiTra.setDonGia(thuoc.getGiaThuoc());
+        return chiTietDoiTra;
+    }
+
+    public PhieuNhap generatePhieuNhap(NhaCungCap nhaCungCap, NhanVien nhanVien) {
+        PhieuNhap phieuNhap = new PhieuNhap();
+        phieuNhap.setId(generateMaPhieuNhap());
+        phieuNhap.setNgayTaoPN(LocalDateTime.now());
+        phieuNhap.setNhaCungCap(nhaCungCap);
+        phieuNhap.setNhanVien(nhanVien);
+        return phieuNhap;
+    }
+
+    public ChiTietPhieuNhap generateChiTietPhieuNhap(Thuoc thuoc, PhieuNhap phieuNhap) {
+        ChiTietPhieuNhap chiTietPhieuNhap = new ChiTietPhieuNhap();
+        chiTietPhieuNhap.setPhieuNhap(phieuNhap);
+        chiTietPhieuNhap.setThuoc(thuoc);
+        chiTietPhieuNhap.setSoLuong(faker.number().numberBetween(1, 100));
+        chiTietPhieuNhap.setDonGia(faker.number().randomDouble(2, 1000, 100000));
+        return chiTietPhieuNhap;
+    }
+
     public void generateData() {
-        EntityManager em = Persistence.createEntityManagerFactory("mariadb").createEntityManager();
         EntityTransaction tr = em.getTransaction();
         try {
             for (int i = 0; i < 10; i++) {
@@ -140,13 +233,26 @@ public class DataGenerator {
                 em.persist(taiKhoan);
                 em.flush();
 
-                List<Thuoc> thuocList = new ArrayList<>();
+                NhaCungCap nhaCungCap = generateNCC();
+                em.persist(nhaCungCap);
+                em.flush();
 
+                List<Thuoc> thuocList = new ArrayList<>();
                 for (int j = 0; j < 10; j++) {
                     Thuoc thuoc = generateThuoc();
                     em.persist(thuoc);
                     em.flush();
                     thuocList.add(thuoc);
+                }
+
+                PhieuNhap phieuNhap = generatePhieuNhap(nhaCungCap, nhanVien);
+                em.persist(phieuNhap);
+                em.flush();
+
+                for (int j = 0; j < 5; j++) {
+                    ChiTietPhieuNhap chiTietPhieuNhap = generateChiTietPhieuNhap(thuocList.get(j), phieuNhap);
+                    em.persist(chiTietPhieuNhap);
+                    em.flush();
                 }
 
                 HoaDon hoaDon = generateHD(khachHang, nhanVien);
@@ -156,6 +262,16 @@ public class DataGenerator {
                 for (int j = 0; j < 10; j++) {
                     ChiTietHoaDon chiTietHoaDon = generateChiTietHD(thuocList.get(j), hoaDon);
                     em.persist(chiTietHoaDon);
+                    em.flush();
+                }
+
+                DoiTra doiTra = generateDT(khachHang, nhanVien);
+                em.persist(doiTra);
+                em.flush();
+
+                for (int j = 0; j < 3; j++) {
+                    ChiTietDoiTra chiTietDoiTra = generateChiTietDT(thuocList.get(j), doiTra);
+                    em.persist(chiTietDoiTra);
                     em.flush();
                 }
                 tr.commit();

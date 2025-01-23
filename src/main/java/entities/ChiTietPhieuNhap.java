@@ -5,8 +5,8 @@ import lombok.Data;
 
 @Data
 @Entity
-@IdClass(ChiTietHoaDonId.class)
-public class ChiTietHoaDon {
+@IdClass(ChiTietPhieuNhapId.class)
+public class ChiTietPhieuNhap {
     @Id
     @ManyToOne
     @JoinColumn(name = "maThuoc")
@@ -17,8 +17,8 @@ public class ChiTietHoaDon {
 
     @Id
     @ManyToOne
-    @JoinColumn(name = "maHoaDon")
-    private HoaDon hoaDon;
+    @JoinColumn(name = "maPhieuNhap")
+    private PhieuNhap phieuNhap;
 
     @Override
     public String toString() {
@@ -26,7 +26,7 @@ public class ChiTietHoaDon {
                 "soLuong=" + soLuong +
                 ", donGia=" + donGia +
                 ", thuoc=" + thuoc +
-                ", hoaDon=" + hoaDon +
+                ", phieuNhap=" + phieuNhap +
                 '}';
     }
 }
