@@ -14,6 +14,7 @@ import java.util.Map;
 
 public class NhaCungCapPanel extends JPanel {
 
+    private JComboBox<String> searchCriteriaCombo;
     private JTextField searchField;
     private JButton searchButton;
     private JButton refreshButton;
@@ -39,6 +40,9 @@ public class NhaCungCapPanel extends JPanel {
 
     private void initComponents() {
         setLayout(new BorderLayout(10, 10));
+        // Thêm combobox cho tiêu chí tìm kiếm
+        String[] searchCriteria = {"Tất cả", "ID", "Tên nhà cung cấp", "Địa chỉ"};
+        searchCriteriaCombo = new JComboBox<>(searchCriteria);
 
         searchField = new JTextField(20);
         searchButton = new JButton("Tìm Kiếm");
@@ -69,7 +73,8 @@ public class NhaCungCapPanel extends JPanel {
     private void setupLayout() {
         // Panel tìm kiếm
         JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        searchPanel.add(new JLabel("Tìm kiếm:"));
+        searchPanel.add(new JLabel("Tìm kiếm theo:"));
+        searchPanel.add(searchCriteriaCombo);
         searchPanel.add(searchField);
         searchPanel.add(searchButton);
         searchPanel.add(refreshButton);
@@ -185,8 +190,45 @@ public class NhaCungCapPanel extends JPanel {
         }
     }
 
+//    private void searchNhaCungCap() {
+//        String keyword = searchField.getText().trim();
+//
+//        if (keyword.isEmpty()) {
+//            loadData();
+//            return;
+//        }
+//
+//        try {
+//            ResponseDTO response = ClientService.getInstance().sendRequest(new RequestDTO("SEARCH_NHA_CUNG_CAP", Map.of("keyword", keyword)));
+//
+//            if (response.isSuccess()) {
+//                // Xóa dữ liệu cũ
+//                tableModel.setRowCount(0);
+//
+//                // Lấy danh sách nhà cung cấp từ response
+//                List<Map<String, Object>> nhaCungCapList = (List<Map<String, Object>>) response.getData().get("nhaCungCapList");
+//
+//                // Thêm dữ liệu vào bảng
+//                for (Map<String, Object> nhaCungCap : nhaCungCapList) {
+//                    Object[] rowData = {
+//                            nhaCungCap.get("idNCC"),
+//                            nhaCungCap.get("tenNCC"),
+//                            nhaCungCap.get("sdt"),
+//                            nhaCungCap.get("diaChi")
+//                    };
+//                    tableModel.addRow(rowData);
+//                }
+//            } else {
+//                JOptionPane.showMessageDialog(this, "Lỗi khi tìm kiếm: " + response.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+//            }
+//        } catch (IOException e) {
+//            JOptionPane.showMessageDialog(this, "Lỗi kết nối: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+//        }
+//    }
+
     private void searchNhaCungCap() {
         String keyword = searchField.getText().trim();
+        String criteria = (String) searchCriteriaCombo.getSelectedItem();
 
         if (keyword.isEmpty()) {
             loadData();
@@ -194,7 +236,12 @@ public class NhaCungCapPanel extends JPanel {
         }
 
         try {
-            ResponseDTO response = ClientService.getInstance().sendRequest(new RequestDTO("SEARCH_NHA_CUNG_CAP", Map.of("keyword", keyword)));
+            // Tạo map chứa thông tin tìm kiếm
+            Map<String, Object> searchData = new HashMap<>();
+            searchData.put("keyword", keyword);
+            searchData.put("criteria", criteria);
+
+            ResponseDTO response = ClientService.getInstance().sendRequest(new RequestDTO("SEARCH_NHA_CUNG_CAP", searchData));
 
             if (response.isSuccess()) {
                 // Xóa dữ liệu cũ
@@ -221,6 +268,32 @@ public class NhaCungCapPanel extends JPanel {
         }
     }
 
+//    private void displaySelectedNhaCungCap() {
+//        int selectedRow = nhaCungCapTable.getSelectedRow();
+//
+//        if (selectedRow != -1) {
+//            String idNCC = (String) tableModel.getValueAt(selectedRow, 0);
+//
+//            try {
+//                ResponseDTO response = ClientService.getInstance().sendRequest(new RequestDTO("GET_NHA_CUNG_CAP_BY_ID", Map.of("idNCC", idNCC)));
+//
+//                if (response.isSuccess()) {
+//                    Map<String, Object> nhaCungCap = (Map<String, Object>) response.getData().get("nhaCungCap");
+//
+//                    // Hiển thị thông tin nhà cung cấp lên form
+//                    idNCCField.setText((String) nhaCungCap.get("idNCC"));
+//                    tenNCCField.setText((String) nhaCungCap.get("tenNCC"));
+//                    sdtField.setText((String) nhaCungCap.get("sdt"));
+//                    diaChiField.setText((String) nhaCungCap.get("diaChi"));
+//                } else {
+//                    JOptionPane.showMessageDialog(this, "Lỗi khi lấy thông tin nhà cung cấp: " + response.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+//                }
+//            } catch (IOException e) {
+//                JOptionPane.showMessageDialog(this, "Lỗi kết nối: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+//            }
+//        }
+//    }
+
     private void displaySelectedNhaCungCap() {
         int selectedRow = nhaCungCapTable.getSelectedRow();
 
@@ -246,6 +319,90 @@ public class NhaCungCapPanel extends JPanel {
             }
         }
     }
+
+//    private void addNhaCungCap() {
+//        // Kiểm tra dữ liệu nhập vào
+//        if (!validateInput()) {
+//            return;
+//        }
+//
+//        try {
+//            // Tạo đối tượng nhà cung cấp từ form
+//            Map<String, Object> nhaCungCap = createNhaCungCapFromForm();
+//
+//            // Gửi yêu cầu thêm nhà cung cấp
+//            ResponseDTO response = ClientService.getInstance().sendRequest(new RequestDTO("SAVE_NHA_CUNG_CAP", Map.of("nhaCungCap", nhaCungCap)));
+//
+//            if (response.isSuccess()) {
+//                JOptionPane.showMessageDialog(this, "Thêm nhà cung cấp thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+//                clearForm();
+//                loadData();
+//            } else {
+//                JOptionPane.showMessageDialog(this, "Lỗi khi thêm nhà cung cấp: " + response.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+//            }
+//        } catch (IOException e) {
+//            JOptionPane.showMessageDialog(this, "Lỗi kết nối: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+//        }
+//    }
+//
+//    private void updateNhaCungCap() {
+//        // Kiểm tra xem đã chọn nhà cung cấp chưa
+//        if (idNCCField.getText().isEmpty()) {
+//            JOptionPane.showMessageDialog(this, "Vui lòng chọn nhà cung cấp cần cập nhật!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+//            return;
+//        }
+//
+//        // Kiểm tra dữ liệu nhập vào
+//        if (!validateInput()) {
+//            return;
+//        }
+//
+//        try {
+//            // Tạo đối tượng nhà cung cấp từ form
+//            Map<String, Object> nhaCungCap = createNhaCungCapFromForm();
+//
+//            // Gửi yêu cầu cập nhật nhà cung cấp
+//            ResponseDTO response = ClientService.getInstance().sendRequest(new RequestDTO("UPDATE_NHA_CUNG_CAP", Map.of("nhaCungCap", nhaCungCap)));
+//
+//            if (response.isSuccess()) {
+//                JOptionPane.showMessageDialog(this, "Cập nhật nhà cung cấp thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+//                clearForm();
+//                loadData();
+//            } else {
+//                JOptionPane.showMessageDialog(this, "Lỗi khi cập nhật nhà cung cấp: " + response.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+//            }
+//        } catch (IOException e) {
+//            JOptionPane.showMessageDialog(this, "Lỗi kết nối: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+//        }
+//    }
+//
+//    private void deleteNhaCungCap() {
+//        // Kiểm tra xem đã chọn nhà cung cấp chưa
+//        if (idNCCField.getText().isEmpty()) {
+//            JOptionPane.showMessageDialog(this, "Vui lòng chọn nhà cung cấp cần xóa!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+//            return;
+//        }
+//
+//        // Xác nhận xóa
+//        int option = JOptionPane.showConfirmDialog(this, "Bạn có chắc chắn muốn xóa nhà cung cấp này?", "Xác nhận xóa", JOptionPane.YES_NO_OPTION);
+//
+//        if (option == JOptionPane.YES_OPTION) {
+//            try {
+//                // Gửi yêu cầu xóa nhà cung cấp
+//                ResponseDTO response = ClientService.getInstance().sendRequest(new RequestDTO("DELETE_NHA_CUNG_CAP", Map.of("idNCC", idNCCField.getText())));
+//
+//                if (response.isSuccess()) {
+//                    JOptionPane.showMessageDialog(this, "Xóa nhà cung cấp thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+//                    clearForm();
+//                    loadData();
+//                } else {
+//                    JOptionPane.showMessageDialog(this, "Lỗi khi xóa nhà cung cấp: " + response.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+//                }
+//            } catch (IOException e) {
+//                JOptionPane.showMessageDialog(this, "Lỗi kết nối: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+//            }
+//        }
+//    }
 
     private void addNhaCungCap() {
         // Kiểm tra dữ liệu nhập vào
@@ -380,9 +537,15 @@ public class NhaCungCapPanel extends JPanel {
             try {
                 ResponseDTO response = ClientService.getInstance().sendRequest(new RequestDTO("GENERATE_NHA_CUNG_CAP_ID", null));
                 if (response.isSuccess()) {
-                    nhaCungCap.put("idNCC", response.getData().get("idNCC"));
+                    String newId = (String) response.getData().get("idNCC");
+                    nhaCungCap.put("idNCC", newId);
+                    // Cập nhật trường ID để hiển thị
+                    idNCCField.setText(newId);
+                } else {
+                    JOptionPane.showMessageDialog(this, "Lỗi khi tạo ID mới: " + response.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
                 }
             } catch (IOException e) {
+                JOptionPane.showMessageDialog(this, "Lỗi kết nối: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
                 e.printStackTrace();
             }
         } else {

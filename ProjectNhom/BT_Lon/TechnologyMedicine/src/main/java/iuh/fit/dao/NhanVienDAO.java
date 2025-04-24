@@ -28,9 +28,17 @@ public class NhanVienDAO extends GenericDAO<NhanVien> {
         return executeQuery(query, Map.of("hoTen", name));
     }
 
+    public Optional<NhanVien> findByEmail(String email) {
+        String query = "MATCH (nv:NhanVien) " +
+                "WHERE nv.email = $email " +
+                "RETURN nv";
+        List<NhanVien> results = executeQuery(query, Map.of("email", email));
+        return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
+    }
+
     public boolean save(NhanVien nhanVien) {
         String query = "CREATE (nv:NhanVien {idNV: $idNV, hoTen: $hoTen, sdt: $sdt, " +
-                "gioiTinh: $gioiTinh, namSinh: $namSinh, ngayVaoLam: date($ngayVaoLam)})";
+                "gioiTinh: $gioiTinh, namSinh: $namSinh, ngayVaoLam: date($ngayVaoLam), email: $email})";
 
         Map<String, Object> params = new HashMap<>();
         params.put("idNV", nhanVien.getIdNV());
@@ -39,13 +47,15 @@ public class NhanVienDAO extends GenericDAO<NhanVien> {
         params.put("gioiTinh", nhanVien.getGioiTinh());
         params.put("namSinh", nhanVien.getNamSinh());
         params.put("ngayVaoLam", nhanVien.getNgayVaoLam().toString());
+        params.put("email", nhanVien.getEmail() != null ? nhanVien.getEmail() : "");
 
         return executeUpdate(query, params);
     }
 
     public boolean update(NhanVien nhanVien) {
         String query = "MATCH (nv:NhanVien {idNV: $idNV}) " +
-                "SET nv.hoTen = $hoTen, nv.sdt = $sdt, nv.gioiTinh = $gioiTinh, nv.namSinh = $namSinh";
+                "SET nv.hoTen = $hoTen, nv.sdt = $sdt, nv.gioiTinh = $gioiTinh, " +
+                "nv.namSinh = $namSinh, nv.email = $email";
 
         Map<String, Object> params = new HashMap<>();
         params.put("idNV", nhanVien.getIdNV());
@@ -53,6 +63,7 @@ public class NhanVienDAO extends GenericDAO<NhanVien> {
         params.put("sdt", nhanVien.getSdt());
         params.put("gioiTinh", nhanVien.getGioiTinh());
         params.put("namSinh", nhanVien.getNamSinh());
+        params.put("email", nhanVien.getEmail() != null ? nhanVien.getEmail() : "");
 
         return executeUpdate(query, params);
     }
@@ -67,7 +78,7 @@ public class NhanVienDAO extends GenericDAO<NhanVien> {
                 "OPTIONAL MATCH (tk:TaiKhoan)-[:THUOC_VE]->(nv) " +
                 "RETURN nv.idNV as idNV, nv.hoTen as hoTen, nv.sdt as sdt, " +
                 "nv.gioiTinh as gioiTinh, nv.namSinh as namSinh, " +
-                "nv.ngayVaoLam as ngayVaoLam, " +
+                "nv.ngayVaoLam as ngayVaoLam, nv.email as email, " +
                 "CASE WHEN tk IS NOT NULL THEN 'Đã tạo' ELSE 'Chưa tạo' END as trangThaiTK";
 
         List<Map<String, Object>> result = new ArrayList<>();
@@ -93,6 +104,14 @@ public class NhanVienDAO extends GenericDAO<NhanVien> {
                     nhanVien.put("ngayVaoLam", "");
                 }
 
+                // Xử lý email
+                Value emailValue = record.get("email");
+                if (!emailValue.isNull()) {
+                    nhanVien.put("email", emailValue.asString());
+                } else {
+                    nhanVien.put("email", "");
+                }
+
                 nhanVien.put("trangThaiTK", record.get("trangThaiTK").asString());
 
                 result.add(nhanVien);
@@ -115,7 +134,18 @@ public class NhanVienDAO extends GenericDAO<NhanVien> {
             nhanVien.setSdt(nvValue.get("sdt").asString());
             nhanVien.setGioiTinh(nvValue.get("gioiTinh").asString());
             nhanVien.setNamSinh(nvValue.get("namSinh").asInt());
-            nhanVien.setNgayVaoLam(nvValue.get("ngayVaoLam").asLocalDate());
+
+            // Xử lý ngày vào làm
+            if (!nvValue.get("ngayVaoLam").isNull()) {
+                nhanVien.setNgayVaoLam(nvValue.get("ngayVaoLam").asLocalDate());
+            }
+
+            // Xử lý email
+            if (nvValue.get("email") != null && !nvValue.get("email").isNull()) {
+                nhanVien.setEmail(nvValue.get("email").asString());
+            } else {
+                nhanVien.setEmail("");
+            }
 
             return nhanVien;
         } catch (Exception e) {

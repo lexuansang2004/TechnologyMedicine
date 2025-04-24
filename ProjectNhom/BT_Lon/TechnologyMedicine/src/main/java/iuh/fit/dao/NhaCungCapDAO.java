@@ -31,6 +31,15 @@ public class NhaCungCapDAO extends GenericDAO<NhaCungCap> {
         return executeQuery(query, Map.of("tenNCC", name));
     }
 
+    // Thêm phương thức findByAddress trong NhaCungCapDAO.java
+    public List<NhaCungCap> findByAddress(String address) {
+        String query = "MATCH (ncc:NhaCungCap) " +
+                "WHERE ncc.diaChi CONTAINS $diaChi " +
+                "RETURN ncc";
+
+        return executeQuery(query, Map.of("diaChi", address));
+    }
+
     public boolean save(NhaCungCap nhaCungCap) {
         String query = "CREATE (ncc:NhaCungCap {idNCC: $idNCC, tenNCC: $tenNCC, sdt: $sdt, diaChi: $diaChi})";
 

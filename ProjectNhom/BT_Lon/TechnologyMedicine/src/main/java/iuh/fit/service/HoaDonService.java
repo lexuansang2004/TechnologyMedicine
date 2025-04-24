@@ -81,7 +81,13 @@ public class HoaDonService {
     }
 
     public List<Map<String, Object>> getChiTietHoaDon(String idHD) {
-        return chiTietHoaDonDAO.findByHoaDon(idHD);
+        List<Map<String, Object>> chiTietList = chiTietHoaDonDAO.findByHoaDon(idHD);
+        if (chiTietList == null || chiTietList.isEmpty()) {
+            System.out.println("Không có chi tiết hóa đơn cho idHD: " + idHD);
+        } else {
+            System.out.println("Đã lấy chi tiết hóa đơn thành công cho idHD: " + idHD);
+        }
+        return chiTietList;
     }
 
     public boolean addChiTietHoaDon(String idHD, Map<String, Object> chiTietData) {

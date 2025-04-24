@@ -33,9 +33,14 @@ public class ThuocService {
 
 // Tương tự cho các phương thức khác...
 
+    // Phương thức findById trong ThuocService
     public Optional<Map<String, Object>> findById(String idThuoc) {
         try (Session session = Neo4jConfig.getInstance().getSession()) {
-            String query = "MATCH (t:Thuoc {idThuoc: $idThuoc}) " +
+            // In ra ID thuốc để debug
+            System.out.println("Đang tìm thuốc với ID: " + idThuoc);
+
+            // Sửa câu truy vấn để bao gồm tất cả các thuộc tính của thuốc, bao gồm hinhAnh
+            String query = "MATCH (t:Thuoc) WHERE t.idThuoc = $idThuoc " +
                     "OPTIONAL MATCH (t)-[:CO_DON_VI_TINH]->(dvt:DonViTinh) " +
                     "OPTIONAL MATCH (t)-[:THUOC_DANH_MUC]->(dm:DanhMuc) " +
                     "OPTIONAL MATCH (t)-[:CO_XUAT_XU]->(xx:XuatXu) " +
@@ -46,6 +51,7 @@ public class ThuocService {
             if (result.hasNext()) {
                 Record record = result.next();
                 Map<String, Object> thuoc = record.get("t").asMap();
+                System.out.println("Đã tìm thấy thuốc: " + thuoc);
 
                 if (record.get("dvt") != null) {
                     thuoc.put("donViTinh", record.get("dvt").asMap());
@@ -59,10 +65,20 @@ public class ThuocService {
                     thuoc.put("xuatXu", record.get("xx").asMap());
                 }
 
+                // Đảm bảo trường hinhAnh được bao gồm trong kết quả
+                if (!thuoc.containsKey("hinhAnh") || thuoc.get("hinhAnh") == null) {
+                    thuoc.put("hinhAnh", "default.jpg");
+                } else {
+                    System.out.println("Hình ảnh của thuốc: " + thuoc.get("hinhAnh"));
+                }
+
                 return Optional.of(thuoc);
+            } else {
+                System.out.println("Không tìm thấy thuốc với ID: " + idThuoc);
             }
         } catch (Exception e) {
-            LOGGER.log(Level.SEVERE, "Error finding medicine by ID", e);
+            System.err.println("Lỗi khi tìm thuốc theo ID: " + e.getMessage());
+            e.printStackTrace();
         }
 
         return Optional.empty();

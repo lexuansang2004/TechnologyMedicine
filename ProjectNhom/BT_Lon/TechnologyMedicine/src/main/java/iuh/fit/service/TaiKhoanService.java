@@ -1,18 +1,18 @@
 package iuh.fit.service;
 
+import iuh.fit.config.EmailConfig;
 import iuh.fit.config.Neo4jConfig;
+import iuh.fit.dao.NhanVienDAO;
+import iuh.fit.entity.NhanVien;
 import iuh.fit.entity.TaiKhoan;
 import iuh.fit.util.PasswordUtil;
+import org.mindrot.jbcrypt.BCrypt;
 import org.neo4j.driver.Record;
 import org.neo4j.driver.Result;
 import org.neo4j.driver.Session;
 import org.neo4j.driver.Values;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -194,22 +194,195 @@ public class TaiKhoanService {
         return Optional.empty();
     }
 
+//    public boolean createTaiKhoan(Map<String, Object> taiKhoanData) {
+//        try {
+//            // Tạo đối tượng TaiKhoan mới
+//            TaiKhoan taiKhoan = new TaiKhoan();
+//            taiKhoan.setIdTK(generateId());
+//            taiKhoan.setUsername((String) taiKhoanData.get("username"));
+//            taiKhoan.setPassword("123456"); // Mật khẩu mặc định, nên mã hóa
+//            taiKhoan.setIdNV((String) taiKhoanData.get("idNV"));
+//            taiKhoan.setIdVT((String) taiKhoanData.get("idVT"));
+//
+//            // Lưu tài khoản
+//            return save((Map<String, Object>) taiKhoan);
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//            return false;
+//        }
+//    }
+
+    /**
+     * Tạo tài khoản mới cho nhân viên
+     * @param taiKhoanData Dữ liệu tài khoản
+     * @return true nếu tạo thành công, false nếu thất bại
+     */
     public boolean createTaiKhoan(Map<String, Object> taiKhoanData) {
         try {
-            // Tạo đối tượng TaiKhoan mới
-            TaiKhoan taiKhoan = new TaiKhoan();
-            taiKhoan.setIdTK(generateId());
-            taiKhoan.setUsername((String) taiKhoanData.get("username"));
-            taiKhoan.setPassword("123456"); // Mật khẩu mặc định, nên mã hóa
-            taiKhoan.setIdNV((String) taiKhoanData.get("idNV"));
-            taiKhoan.setIdVT((String) taiKhoanData.get("idVT"));
+            String idNV = (String) taiKhoanData.get("idNV");
+            String username = (String) taiKhoanData.get("username");
+            String idVT = (String) taiKhoanData.get("idVT");
 
-            // Lưu tài khoản
-            return save((Map<String, Object>) taiKhoan);
+            // Kiểm tra dữ liệu đầu vào
+            if (idNV == null || idNV.isEmpty() || username == null || username.isEmpty() || idVT == null || idVT.isEmpty()) {
+                LOGGER.warning("Dữ liệu tài khoản không đầy đủ");
+                return false;
+            }
+
+            // Kiểm tra nhân viên tồn tại
+            Optional<NhanVien> nhanVienOpt = new NhanVienDAO().findById(idNV);
+            if (nhanVienOpt.isEmpty()) {
+                LOGGER.warning("Không tìm thấy nhân viên với ID: " + idNV);
+                return false;
+            }
+
+            // Kiểm tra username đã tồn tại chưa
+            if (isUsernameExists(username)) {
+                LOGGER.warning("Username đã tồn tại: " + username);
+                return false;
+            }
+
+            // Kiểm tra vai trò tồn tại
+            boolean vaiTroExists = checkVaiTroExists(idVT);
+            if (!vaiTroExists) {
+                LOGGER.warning("Không tìm thấy vai trò với ID: " + idVT);
+                return false;
+            }
+
+            // Tạo ID tài khoản mới
+            String idTK = generateNewId();
+
+            // Tạo mật khẩu ngẫu nhiên
+            String password = generateRandomPassword();
+            String hashedPassword = BCrypt.hashpw(password, BCrypt.gensalt());
+
+            // Lưu tài khoản vào cơ sở dữ liệu
+            try (Session session = Neo4jConfig.getInstance().getSession()) {
+                String query = "CREATE (tk:TaiKhoan {idTK: $idTK, username: $username, password: $password}) " +
+                        "WITH tk " +
+                        "MATCH (nv:NhanVien {idNV: $idNV}) " +
+                        "MATCH (vt:VaiTro {idVT: $idVT}) " +
+                        "CREATE (tk)-[:THUOC_VE]->(nv) " +
+                        "CREATE (tk)-[:CO_VAI_TRO]->(vt) " +
+                        "RETURN tk.idTK";
+
+                Result result = session.run(query, Map.of(
+                        "idTK", idTK,
+                        "username", username,
+                        "password", hashedPassword,
+                        "idNV", idNV,
+                        "idVT", idVT
+                ));
+
+                if (result.hasNext()) {
+                    // Gửi email thông báo tài khoản đã được tạo
+                    NhanVien nhanVien = nhanVienOpt.get();
+                    if (nhanVien.getEmail() != null && !nhanVien.getEmail().isEmpty()) {
+                        boolean sent = EmailConfig.getInstance().sendEmail(
+                                nhanVien.getEmail(),
+                                "Thông tin tài khoản mới",
+                                "<html><body>" +
+                                        "<h2>Xin chào " + nhanVien.getHoTen() + ",</h2>" +
+                                        "<p>Tài khoản của bạn đã được tạo với thông tin sau:</p>" +
+                                        "<p>Tên đăng nhập: <strong>" + username + "</strong></p>" +
+                                        "<p>Mật khẩu: <strong>" + password + "</strong></p>" +
+                                        "<p>Vui lòng đổi mật khẩu sau khi đăng nhập lần đầu.</p>" +
+                                        "<p>Trân trọng,<br>Nhà thuốc TechnologyMedicine</p>" +
+                                        "</body></html>"
+                        );
+
+                        if (!sent) {
+                            LOGGER.warning("Không thể gửi email thông báo tài khoản mới");
+                        }
+                    }
+
+                    LOGGER.info("Đã tạo tài khoản cho nhân viên: " + idNV);
+                    return true;
+                } else {
+                    LOGGER.warning("Không thể tạo tài khoản cho nhân viên: " + idNV);
+                    return false;
+                }
+            }
         } catch (Exception e) {
+            LOGGER.log(Level.SEVERE, "Lỗi khi tạo tài khoản", e);
             e.printStackTrace();
             return false;
         }
+    }
+
+    /**
+     * Kiểm tra username đã tồn tại chưa
+     */
+    public boolean isUsernameExists(String username) {
+        try (Session session = Neo4jConfig.getInstance().getSession()) {
+            String query = "MATCH (tk:TaiKhoan {username: $username}) RETURN count(tk) as count";
+            Result result = session.run(query, Map.of("username", username));
+
+            if (result.hasNext()) {
+                Record record = result.next();
+                int count = record.get("count").asInt();
+                return count > 0;
+            }
+
+            return false;
+        }
+    }
+
+    /**
+     * Kiểm tra vai trò tồn tại
+     */
+    private boolean checkVaiTroExists(String idVT) {
+        try (Session session = Neo4jConfig.getInstance().getSession()) {
+            String query = "MATCH (vt:VaiTro {idVT: $idVT}) RETURN count(vt) as count";
+            Result result = session.run(query, Map.of("idVT", idVT));
+
+            if (result.hasNext()) {
+                Record record = result.next();
+                int count = record.get("count").asInt();
+                return count > 0;
+            }
+
+            return false;
+        }
+    }
+
+
+    /**
+     * Tạo ID tài khoản mới
+     */
+    private String generateNewId() {
+        try (Session session = Neo4jConfig.getInstance().getSession()) {
+            String query = "MATCH (tk:TaiKhoan) RETURN tk.idTK as idTK ORDER BY tk.idTK DESC LIMIT 1";
+            Result result = session.run(query);
+
+            if (result.hasNext()) {
+                Record record = result.next();
+                String lastId = record.get("idTK").asString();
+
+                // Trích xuất số từ ID cuối cùng (TK001 -> 1)
+                int number = Integer.parseInt(lastId.substring(2));
+
+                // Tạo ID mới (TK001 -> TK002)
+                return String.format("TK%03d", number + 1);
+            } else {
+                // Nếu không có tài khoản nào, bắt đầu từ TK001
+                return "TK001";
+            }
+        }
+    }
+
+    /**
+     * Tạo mật khẩu ngẫu nhiên
+     */
+    private String generateRandomPassword() {
+        String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        StringBuilder sb = new StringBuilder();
+        Random random = new Random();
+        for (int i = 0; i < 8; i++) {
+            int index = random.nextInt(chars.length());
+            sb.append(chars.charAt(index));
+        }
+        return sb.toString();
     }
 
     public boolean save(Map<String, Object> taiKhoanData) {
@@ -349,6 +522,50 @@ public class TaiKhoanService {
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "Error generating ID", e);
             return "TK" + System.currentTimeMillis();
+        }
+    }
+
+    /**
+     * Đặt lại mật khẩu cho nhân viên
+     * @param idNV ID của nhân viên
+     * @param newPassword Mật khẩu mới
+     * @return true nếu đặt lại mật khẩu thành công, false nếu thất bại
+     */
+    public boolean resetPassword(String idNV, String newPassword) {
+        try {
+            // Tìm tài khoản của nhân viên
+            String query = "MATCH (tk:TaiKhoan)-[:THUOC_VE]->(nv:NhanVien {idNV: $idNV}) " +
+                    "RETURN tk.idTK as idTK, tk.username as username";
+
+            try (Session session = Neo4jConfig.getInstance().getSession()) {
+                Result result = session.run(query, Map.of("idNV", idNV));
+
+                if (result.hasNext()) {
+                    Record record = result.next();
+                    String idTK = record.get("idTK").asString();
+
+                    // Mã hóa mật khẩu mới
+                    String hashedPassword = BCrypt.hashpw(newPassword, BCrypt.gensalt());
+
+                    // Cập nhật mật khẩu
+                    String updateQuery = "MATCH (tk:TaiKhoan {idTK: $idTK}) " +
+                            "SET tk.password = $password";
+
+                    session.run(updateQuery, Map.of(
+                            "idTK", idTK,
+                            "password", hashedPassword
+                    ));
+
+                    LOGGER.info("Đã đặt lại mật khẩu cho nhân viên: " + idNV);
+                    return true;
+                } else {
+                    LOGGER.warning("Không tìm thấy tài khoản cho nhân viên: " + idNV);
+                    return false;
+                }
+            }
+        } catch (Exception e) {
+            LOGGER.log(Level.SEVERE, "Lỗi khi đặt lại mật khẩu", e);
+            return false;
         }
     }
 }

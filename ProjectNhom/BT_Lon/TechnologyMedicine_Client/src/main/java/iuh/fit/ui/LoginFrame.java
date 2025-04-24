@@ -1,5 +1,6 @@
 package iuh.fit.ui;
 
+import iuh.fit.dto.RequestDTO;
 import iuh.fit.dto.ResponseDTO;
 import iuh.fit.service.ClientService;
 
@@ -7,6 +8,8 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 public class LoginFrame extends JFrame {
 
@@ -14,6 +17,7 @@ public class LoginFrame extends JFrame {
     private JPasswordField passwordField;
     private JButton loginButton;
     private JButton exitButton;
+    private JLabel forgotPasswordLabel;
 
     public LoginFrame() {
         initComponents();
@@ -24,7 +28,7 @@ public class LoginFrame extends JFrame {
     private void initComponents() {
         setTitle("Đăng Nhập - Hệ Thống Quản Lý Thuốc");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(400, 300);
+        setSize(400, 350);
         setLocationRelativeTo(null);
         setResizable(false);
 
@@ -32,6 +36,9 @@ public class LoginFrame extends JFrame {
         passwordField = new JPasswordField(20);
         loginButton = new JButton("Đăng Nhập");
         exitButton = new JButton("Thoát");
+        forgotPasswordLabel = new JLabel("Quên mật khẩu?");
+        forgotPasswordLabel.setForeground(Color.BLUE);
+        forgotPasswordLabel.setCursor(new Cursor(Cursor.HAND_CURSOR));
     }
 
     private void setupLayout() {
@@ -48,6 +55,7 @@ public class LoginFrame extends JFrame {
         JPanel loginPanel = new JPanel(new GridBagLayout());
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new Insets(5, 5, 5, 5);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
 
         gbc.gridx = 0;
         gbc.gridy = 0;
@@ -69,6 +77,11 @@ public class LoginFrame extends JFrame {
         gbc.anchor = GridBagConstraints.WEST;
         loginPanel.add(passwordField, gbc);
 
+        gbc.gridx = 1;
+        gbc.gridy = 2;
+        gbc.anchor = GridBagConstraints.EAST;
+        loginPanel.add(forgotPasswordLabel, gbc);
+
         // Panel nút
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
         buttonPanel.add(loginButton);
@@ -84,6 +97,11 @@ public class LoginFrame extends JFrame {
     private void setupListeners() {
         loginButton.addActionListener(this::handleLogin);
         exitButton.addActionListener(e -> System.exit(0));
+        forgotPasswordLabel.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                showForgotPasswordDialog();
+            }
+        });
 
         // Cho phép nhấn Enter để đăng nhập
         getRootPane().setDefaultButton(loginButton);
@@ -121,5 +139,83 @@ public class LoginFrame extends JFrame {
         } catch (IOException ex) {
             JOptionPane.showMessageDialog(this, "Không thể kết nối đến server: " + ex.getMessage(), "Lỗi Kết Nối", JOptionPane.ERROR_MESSAGE);
         }
+    }
+
+    private void showForgotPasswordDialog() {
+        JDialog dialog = new JDialog(this, "Quên Mật Khẩu", true);
+        dialog.setSize(400, 250);
+        dialog.setLocationRelativeTo(this);
+        dialog.setLayout(new BorderLayout());
+
+        JPanel mainPanel = new JPanel(new BorderLayout(10, 10));
+        mainPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+
+        JPanel formPanel = new JPanel(new GridBagLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(5, 5, 5, 5);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+
+        JLabel infoLabel = new JLabel("Nhập mã nhân viên để đặt lại mật khẩu:");
+        JTextField idNVField = new JTextField(20);
+        JButton submitButton = new JButton("Gửi Yêu Cầu");
+        JButton cancelButton = new JButton("Hủy");
+
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        gbc.gridwidth = 2;
+        formPanel.add(infoLabel, gbc);
+
+        gbc.gridx = 0;
+        gbc.gridy = 1;
+        gbc.gridwidth = 1;
+        formPanel.add(new JLabel("Mã nhân viên:"), gbc);
+
+        gbc.gridx = 1;
+        gbc.gridy = 1;
+        formPanel.add(idNVField, gbc);
+
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        buttonPanel.add(submitButton);
+        buttonPanel.add(cancelButton);
+
+        mainPanel.add(formPanel, BorderLayout.CENTER);
+        mainPanel.add(buttonPanel, BorderLayout.SOUTH);
+
+        dialog.add(mainPanel);
+
+        // Xử lý sự kiện nút Gửi Yêu Cầu
+        submitButton.addActionListener(e -> {
+            String idNV = idNVField.getText().trim();
+            if (idNV.isEmpty()) {
+                JOptionPane.showMessageDialog(dialog, "Vui lòng nhập mã nhân viên", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            try {
+                // Gửi yêu cầu đặt lại mật khẩu
+                Map<String, Object> data = new HashMap<>();
+                data.put("idNV", idNV);
+                RequestDTO request = new RequestDTO("RESET_PASSWORD", data);
+                ResponseDTO response = ClientService.getInstance().sendRequest(request);
+
+                if (response != null && response.isSuccess()) {
+                    JOptionPane.showMessageDialog(dialog,
+                            "Mật khẩu mới đã được gửi đến email của bạn.\nVui lòng kiểm tra hộp thư đến.",
+                            "Thành Công", JOptionPane.INFORMATION_MESSAGE);
+                    dialog.dispose();
+                } else {
+                    String errorMessage = (response != null) ? response.getMessage() : "Không thể kết nối đến server";
+                    JOptionPane.showMessageDialog(dialog, errorMessage, "Lỗi", JOptionPane.ERROR_MESSAGE);
+                }
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(dialog, "Lỗi: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+                ex.printStackTrace();
+            }
+        });
+
+        // Xử lý sự kiện nút Hủy
+        cancelButton.addActionListener(e -> dialog.dispose());
+
+        dialog.setVisible(true);
     }
 }

@@ -1,6 +1,6 @@
-idNV,hoTen,sdt,gioiTinh,namSinh,ngayVaoLam
-NV001,Nguyễn Văn Admin,0901111111,Nam,1990,2022-01-01
-NV002,Trần Thị Nhân Viên,0902222222,Nữ,1995,2022-02-15
-NV003,Lê Văn Quản Lý,0903333333,Nam,1988,2022-03-10
-NV004,Phạm Thị Kho,0904444444,Nữ,1992,2022-04-20
-NV005,Hoàng Văn Bán Hàng,0905555555,Nam,1997,2022-05-05
+idNV,hoTen,sdt,gioiTinh,namSinh,ngayVaoLam,email
+NV001,Nguyễn Văn Admin,0901111111,Nam,1990,2022-01-01,evoltevolution4@gmail.com
+NV002,Trần Thị Nhân Viên,0902222222,Nữ,1995,2022-02-15,nhanvien@example.com
+NV003,Lê Văn Quản Lý,0903333333,Nam,1988,2022-03-10,quanly@example.com
+NV004,Phạm Thị Kho,0904444444,Nữ,1992,2022-04-20,kho@example.com
+NV005,Hoàng Văn Bán Hàng,0905555555,Nam,1997,2022-05-05,banhang@example.com

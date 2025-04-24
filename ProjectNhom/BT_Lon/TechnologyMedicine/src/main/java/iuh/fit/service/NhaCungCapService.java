@@ -56,4 +56,8 @@ public class NhaCungCapService {
 
         return String.format("NCC%03d", maxId + 1);
     }
+
+    public List<NhaCungCap> findByAddress(String address) {
+        return nhaCungCapDAO.findByAddress(address);
+    }
 }

@@ -21,37 +21,79 @@ public class ChiTietHoaDonDAO {
         List<Map<String, Object>> chiTietList = new ArrayList<>();
 
         try (Session session = Neo4jConfig.getInstance().getDriver().session()) {
-            String query = "MATCH (hd:HoaDon {idHD: $idHD})-[r:CO_CHI_TIET]->(t:Thuoc) "
-                    + "OPTIONAL MATCH (t)-[:CO_DON_VI_TINH]->(dvt:DonViTinh) "
-                    + "RETURN hd, r, t, dvt";
+            String query = "MATCH (hd:HoaDon)-[r:CO_CHI_TIET]->(t:Thuoc) " +
+                    "WHERE hd.idHD = $idHD " +
+                    "OPTIONAL MATCH (t)-[:CO_DON_VI_TINH]->(dvt:DonViTinh) " +
+                    "RETURN hd, r, t, dvt";
 
             Result result = session.run(query, Values.parameters("idHD", idHD));
             while (result.hasNext()) {
                 Record record = result.next();
 
-                Map<String, Object> chiTietMap = new HashMap<>();
-                chiTietMap.put("idHD", idHD);
-                chiTietMap.put("idThuoc", record.get("t").asNode().get("idThuoc").asString());
-                chiTietMap.put("soLuong", record.get("r").asRelationship().get("soLuong").asInt());
-                chiTietMap.put("donGia", record.get("r").asRelationship().get("donGia").asDouble());
+                try {
+                    System.out.println("Found record: " + record);
 
-                // Thêm thông tin thuốc
-                Map<String, Object> thuocMap = record.get("t").asNode().asMap();
-                chiTietMap.put("thuoc", thuocMap);
+                    Map<String, Object> chiTietMap = new HashMap<>();
+                    chiTietMap.put("idHD", idHD);
 
-                // Thêm thông tin đơn vị tính nếu có
-                if (record.get("dvt") != null && !record.get("dvt").isNull()) {
-                    Map<String, Object> dvtMap = record.get("dvt").asNode().asMap();
-                    chiTietMap.put("donViTinh", dvtMap);
+                    // Lấy thông tin thuốc an toàn
+                    if (record.containsKey("t") && !record.get("t").isNull()) {
+                        var thuocNode = record.get("t").asNode();
+
+                        // Tránh lỗi nếu không có idThuoc
+                        if (thuocNode.containsKey("idThuoc")) {
+                            chiTietMap.put("idThuoc", thuocNode.get("idThuoc").asString());
+                        } else {
+                            System.out.println("Node thuốc không có idThuoc!");
+                            continue;
+                        }
+
+                        Map<String, Object> thuocMap = new HashMap<>();
+
+                        thuocNode.keys().forEach(key -> {
+                            try {
+                                var val = thuocNode.get(key);
+                                // Nếu là datetime thì xử lý riêng
+                                if (val.hasType(org.neo4j.driver.internal.types.InternalTypeSystem.TYPE_SYSTEM.DATE_TIME())) {
+                                    thuocMap.put(key, val.asZonedDateTime().toString()); // hoặc val.toString()
+                                } else {
+                                    thuocMap.put(key, val.asObject());
+                                }
+                            } catch (Exception ex) {
+                                System.out.println("Lỗi khi xử lý field " + key + ": " + ex.getMessage());
+                            }
+                        });
+                        chiTietMap.put("thuoc", thuocMap);
+                    } else {
+                        System.out.println("Không có node t (Thuoc) trong record!");
+                        continue;
+                    }
+
+                    // Relationship
+                    if (record.containsKey("r") && !record.get("r").isNull()) {
+                        var r = record.get("r").asRelationship();
+
+                        chiTietMap.put("soLuong", r.get("soLuong").asInt());
+                        chiTietMap.put("donGia", r.get("donGia").asDouble());
+                    } else {
+                        System.out.println("Không có relationship r!");
+                        continue;
+                    }
+
+                    // DVT nếu có
+                    if (record.containsKey("dvt") && !record.get("dvt").isNull()) {
+                        chiTietMap.put("donViTinh", record.get("dvt").asNode().asMap());
+                    }
+
+                    chiTietList.add(chiTietMap);
+                } catch (Exception ex) {
+                    System.err.println("Lỗi khi xử lý 1 record chi tiết: " + ex.getMessage());
+                    ex.printStackTrace();
                 }
-
-                chiTietList.add(chiTietMap);
             }
-        } catch (Exception e) {
-            LOGGER.log(Level.SEVERE, "Error finding ChiTietHoaDon by HoaDon ID: " + idHD, e);
         }
 
-        return chiTietList;
+            return chiTietList;
     }
 
     public boolean add(String idHD, Map<String, Object> chiTietData) {

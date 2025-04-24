@@ -16,4 +16,5 @@ public class NhanVien {
     private String gioiTinh;
     private Integer namSinh;
     private LocalDate ngayVaoLam;
+    private String email; // Thêm trường email
 }

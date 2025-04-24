@@ -100,7 +100,8 @@ CREATE (nv:NhanVien {
   sdt: row.sdt,
   gioiTinh: row.gioiTinh,
   namSinh: toInteger(row.namSinh),
-  ngayVaoLam: date(row.ngayVaoLam)
+  ngayVaoLam: date(row.ngayVaoLam),
+  email: row.email
 });
 
 // Import Vai Trò

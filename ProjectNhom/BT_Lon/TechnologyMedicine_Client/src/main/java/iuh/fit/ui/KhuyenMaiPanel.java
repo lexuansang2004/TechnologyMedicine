@@ -42,6 +42,18 @@ public class KhuyenMaiPanel extends JPanel {
         hangMucComboBox = new JComboBox<>();
         thuocComboBox = new JComboBox<>();
 
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        JButton addButton = new JButton("Thêm");
+        JButton updateButton = new JButton("Cập nhật");
+        JButton deleteButton = new JButton("Xóa");
+
+        buttonPanel.add(addButton);
+        buttonPanel.add(updateButton);
+        buttonPanel.add(deleteButton);
+
+        add(buttonPanel, BorderLayout.NORTH); // hoặc BorderLayout.EAST tùy thích
+
+
         // Thêm dữ liệu mẫu cho hạng mục
         hangMucComboBox.addItem("HM001 - Khách hàng thường");
         hangMucComboBox.addItem("HM002 - Khách hàng VIP");
@@ -56,6 +68,55 @@ public class KhuyenMaiPanel extends JPanel {
         detailPanel.add(new JLabel("Thuốc:")); detailPanel.add(thuocComboBox);
 
         add(detailPanel, BorderLayout.SOUTH);
+
+        addButton.addActionListener(e -> {
+            String id = "KM" + (int)(Math.random() * 900 + 100); // Tạo ID ngẫu nhiên ví dụ
+            String loai = (String) loaiComboBox.getSelectedItem();
+            String mucGiam = mucGiamGiaField.getText();
+            String trangThai = (String) trangThaiComboBox.getSelectedItem();
+
+            if (mucGiam.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Vui lòng nhập mức giảm giá");
+                return;
+            }
+
+            tableModel.addRow(new Object[]{id, loai, mucGiam, trangThai});
+        });
+
+        updateButton.addActionListener(e -> {
+            int selectedRow = khuyenMaiTable.getSelectedRow();
+            if (selectedRow == -1) {
+                JOptionPane.showMessageDialog(this, "Vui lòng chọn một dòng để cập nhật");
+                return;
+            }
+
+            String loai = (String) loaiComboBox.getSelectedItem();
+            String mucGiam = mucGiamGiaField.getText();
+            String trangThai = (String) trangThaiComboBox.getSelectedItem();
+
+            if (mucGiam.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Vui lòng nhập mức giảm giá");
+                return;
+            }
+
+            tableModel.setValueAt(loai, selectedRow, 1);
+            tableModel.setValueAt(mucGiam, selectedRow, 2);
+            tableModel.setValueAt(trangThai, selectedRow, 3);
+        });
+
+        deleteButton.addActionListener(e -> {
+            int selectedRow = khuyenMaiTable.getSelectedRow();
+            if (selectedRow == -1) {
+                JOptionPane.showMessageDialog(this, "Vui lòng chọn một dòng để xóa");
+                return;
+            }
+
+            int confirm = JOptionPane.showConfirmDialog(this, "Bạn có chắc chắn muốn xóa?", "Xác nhận", JOptionPane.YES_NO_OPTION);
+            if (confirm == JOptionPane.YES_OPTION) {
+                tableModel.removeRow(selectedRow);
+            }
+        });
+
 
         // Sự kiện chọn dòng trong bảng
         khuyenMaiTable.getSelectionModel().addListSelectionListener(e -> {

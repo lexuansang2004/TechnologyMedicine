@@ -107,10 +107,11 @@ public class ClientService {
         return sendRequest(request);
     }
 
-    public ResponseDTO searchThuoc(String keyword) throws IOException {
+    public ResponseDTO searchThuoc(String keyword, String criteria) throws IOException {
         RequestDTO request = new RequestDTO();
         request.setAction("SEARCH_THUOC");
         request.addData("keyword", keyword);
+        request.addData("criteria", criteria);
 
         return sendRequest(request);
     }

@@ -2,6 +2,7 @@ package iuh.fit;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import iuh.fit.config.EmailConfig;
 import iuh.fit.config.Neo4jConfig;
 import iuh.fit.dto.RequestDTO;
 import iuh.fit.dto.ResponseDTO;
@@ -9,6 +10,9 @@ import iuh.fit.entity.*;
 import iuh.fit.service.*;
 import iuh.fit.util.LocalDateAdapter;
 import iuh.fit.util.LocalDateTimeAdapter;
+import org.neo4j.driver.Result;
+import org.neo4j.driver.Session;
+import org.neo4j.driver.Record;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -119,8 +123,8 @@ public class Server {
                     return handleGetAllThuoc();
                 case "GET_THUOC_BY_ID":
                     return handleGetThuocById(request);
-//                case "SEARCH_THUOC":
-//                    return handleSearchThuoc(request);
+                case "SEARCH_THUOC":
+                    return handleSearchThuoc(request);
                 case "SAVE_THUOC":
                     return handleSaveThuoc(request);
                 case "UPDATE_THUOC":
@@ -133,8 +137,8 @@ public class Server {
                     return handleGetAllKhachHang();
                 case "GET_KHACH_HANG_BY_ID":
                     return handleGetKhachHangById(request);
-//                case "SEARCH_KHACH_HANG":
-//                    return handleSearchKhachHang(request);
+                case "SEARCH_KHACH_HANG":
+                    return handleSearchKhachHang(request);
                 case "SAVE_KHACH_HANG":
                     return handleSaveKhachHang(request);
                 case "UPDATE_KHACH_HANG":
@@ -153,14 +157,16 @@ public class Server {
                     return handleGetAllNhaCungCap();
                 case "GET_NHA_CUNG_CAP_BY_ID":
                     return handleGetNhaCungCapById(request);
-//                case "SEARCH_NHA_CUNG_CAP":
-//                    return handleSearchNhaCungCap(request);
+                case "SEARCH_NHA_CUNG_CAP":
+                    return handleSearchNhaCungCap(request);
                 case "SAVE_NHA_CUNG_CAP":
                     return handleSaveNhaCungCap(request);
                 case "UPDATE_NHA_CUNG_CAP":
                     return handleUpdateNhaCungCap(request);
                 case "DELETE_NHA_CUNG_CAP":
                     return handleDeleteNhaCungCap(request);
+                case "GENERATE_NHA_CUNG_CAP_ID":
+                    return handleGenerateNhaCungCapId(request);
 
                 // Khuyến mãi
                 case "GET_ALL_KHUYEN_MAI":
@@ -219,6 +225,9 @@ public class Server {
                     return handleUpdateTaiKhoan(request);
                 case "DELETE_TAI_KHOAN":
                     return handleDeleteTaiKhoan(request);
+                // Thêm case RESET_PASSWORD
+                case "RESET_PASSWORD":
+                    return handleResetPassword(request);
 
                 // Hóa đơn
                 case "GET_ALL_HOA_DON":
@@ -307,16 +316,6 @@ public class Server {
         }
     }
 
-    // Xử lý Thuốc
-//    private ResponseDTO handleGetAllThuoc() {
-//        try {
-//            ResponseDTO response = new ResponseDTO(true, "Lấy danh sách thuốc thành công");
-//            response.addData("thuocList", thuocService.findAll());
-//            return response;
-//        } catch (Exception e) {
-//            return new ResponseDTO(false, "Lỗi khi lấy danh sách thuốc: " + e.getMessage());
-//        }
-//    }
     private ResponseDTO handleGetAllThuoc() {
         try {
             List<Thuoc> thuocs = thuocService.findAll();
@@ -335,6 +334,8 @@ public class Server {
                 thuocInfo.put("xuatXu", thuoc.getXuatXu());
                 thuocInfo.put("danhMuc", thuoc.getDanhMuc());
                 thuocInfo.put("hanSuDung", thuoc.getHanSuDung());
+                thuocInfo.put("hinhAnh", thuoc.getHinhAnh());
+                thuocInfo.put("donGia", thuoc.getDonGia());
 
                 thuocList.put(thuoc.getIdThuoc(), thuocInfo);
             }
@@ -348,14 +349,102 @@ public class Server {
         }
     }
 
+    private ResponseDTO handleSearchThuoc(RequestDTO request) {
+        try {
+            String keyword = (String) request.getData().get("keyword");
+            String criteria = (String) request.getData().getOrDefault("criteria", "all");
+
+            if (keyword == null || keyword.trim().isEmpty()) {
+                return handleGetAllThuoc(); // Nếu từ khóa trống, trả về tất cả thuốc
+            }
+
+            List<Thuoc> thuocs = thuocService.findAll();
+            Map<String, Object> data = new HashMap<>();
+            Map<String, Object> filteredThuocs = new HashMap<>();
+
+            for (Thuoc thuoc : thuocs) {
+                boolean match = false;
+
+                switch (criteria) {
+                    case "id":
+                        match = thuoc.getIdThuoc() != null &&
+                                thuoc.getIdThuoc().toLowerCase().contains(keyword.toLowerCase());
+                        break;
+                    case "name":
+                        match = thuoc.getTenThuoc() != null &&
+                                thuoc.getTenThuoc().toLowerCase().contains(keyword.toLowerCase());
+                        break;
+                    case "origin":
+                        match = thuoc.getXuatXu() != null &&
+                                thuoc.getXuatXu().getTen() != null &&
+                                thuoc.getXuatXu().getTen().toLowerCase().contains(keyword.toLowerCase());
+                        break;
+                    case "category":
+                        match = thuoc.getDanhMuc() != null &&
+                                thuoc.getDanhMuc().getTen() != null &&
+                                thuoc.getDanhMuc().getTen().toLowerCase().contains(keyword.toLowerCase());
+                        break;
+                    default: // Tìm kiếm tất cả
+                        match = (thuoc.getIdThuoc() != null &&
+                                thuoc.getIdThuoc().toLowerCase().contains(keyword.toLowerCase())) ||
+                                (thuoc.getTenThuoc() != null &&
+                                        thuoc.getTenThuoc().toLowerCase().contains(keyword.toLowerCase()));
+
+                        if (!match && thuoc.getXuatXu() != null && thuoc.getXuatXu().getTen() != null) {
+                            match = thuoc.getXuatXu().getTen().toLowerCase().contains(keyword.toLowerCase());
+                        }
+
+                        if (!match && thuoc.getDanhMuc() != null && thuoc.getDanhMuc().getTen() != null) {
+                            match = thuoc.getDanhMuc().getTen().toLowerCase().contains(keyword.toLowerCase());
+                        }
+                        break;
+                }
+
+                if (match) {
+                    Map<String, Object> thuocInfo = new HashMap<>();
+                    thuocInfo.put("idThuoc", thuoc.getIdThuoc());
+                    thuocInfo.put("tenThuoc", thuoc.getTenThuoc());
+                    thuocInfo.put("giaNhap", thuoc.getGiaNhap());
+                    thuocInfo.put("soLuongTon", thuoc.getSoLuongTon());
+                    thuocInfo.put("donViTinh", thuoc.getDonViTinh());
+                    thuocInfo.put("xuatXu", thuoc.getXuatXu());
+                    thuocInfo.put("danhMuc", thuoc.getDanhMuc());
+                    thuocInfo.put("hanSuDung", thuoc.getHanSuDung());
+                    thuocInfo.put("donGia", thuoc.getDonGia());
+
+                    filteredThuocs.put(thuoc.getIdThuoc(), thuocInfo);
+                }
+            }
+
+            data.put("thuocs", filteredThuocs);
+
+            if (filteredThuocs.isEmpty()) {
+                return new ResponseDTO(false, "Không tìm thấy thuốc phù hợp với từ khóa: " + keyword);
+            } else {
+                return new ResponseDTO(true, "Tìm thấy " + filteredThuocs.size() + " thuốc phù hợp", data);
+            }
+        } catch (Exception e) {
+            LOGGER.log(Level.SEVERE, "Lỗi tìm kiếm thuốc", e);
+            return new ResponseDTO(false, "Lỗi tìm kiếm thuốc: " + e.getMessage());
+        }
+    }
+
+    // Phương thức xử lý yêu cầu GET_THUOC_BY_ID
     private ResponseDTO handleGetThuocById(RequestDTO request) {
         try {
             String idThuoc = (String) request.getData().get("idThuoc");
             var thuocOpt = thuocService.findById(idThuoc);
 
             if (thuocOpt.isPresent()) {
+                Map<String, Object> thuoc = thuocOpt.get();
+
+                // Đảm bảo trường hinhAnh được bao gồm trong phản hồi
+                if (!thuoc.containsKey("hinhAnh") || thuoc.get("hinhAnh") == null) {
+                    thuoc.put("hinhAnh", "default.jpg");
+                }
+
                 ResponseDTO response = new ResponseDTO(true, "Lấy thông tin thuốc thành công");
-                response.addData("thuoc", thuocOpt.get());
+                response.addData("thuoc", thuoc);
                 return response;
             } else {
                 return new ResponseDTO(false, "Không tìm thấy thuốc với ID: " + idThuoc);
@@ -483,14 +572,33 @@ public class Server {
         }
     }
 
+    // Thêm phương thức xử lý tìm kiếm khách hàng theo tiêu chí
+    private ResponseDTO handleSearchKhachHang(RequestDTO request) {
+        try {
+            String keyword = (String) request.getData().get("keyword");
+            String criteria = (String) request.getData().getOrDefault("criteria", "Tất cả");
+
+            List<Map<String, Object>> khachHangList = khachHangService.search(keyword, criteria);
+
+            ResponseDTO response = new ResponseDTO(true, "Tìm kiếm khách hàng thành công");
+            response.addData("khachHangList", khachHangList);
+            return response;
+        } catch (Exception e) {
+            return new ResponseDTO(false, "Lỗi khi tìm kiếm khách hàng: " + e.getMessage());
+        }
+    }
+
+    // Sửa phương thức xử lý tạo OTP để hỗ trợ phương thức gửi
     private ResponseDTO handleGenerateOTP(RequestDTO request) {
         try {
             String idKH = (String) request.getData().get("idKH");
-            String otp = String.valueOf(khachHangService.generateOTP(idKH));
+            String method = (String) request.getData().getOrDefault("method", "email"); // Mặc định là email
 
-            if (otp != null) {
+            int otpValue = khachHangService.generateOTP(idKH, method);
+
+            if (otpValue > 0) {
                 ResponseDTO response = new ResponseDTO(true, "Tạo OTP thành công");
-                response.addData("otp", otp);
+                response.addData("otp", String.valueOf(otpValue));
                 return response;
             } else {
                 return new ResponseDTO(false, "Tạo OTP thất bại");
@@ -535,6 +643,91 @@ public class Server {
         }
     }
 
+//    // Xử lý Nhà Cung Cấp
+//    private ResponseDTO handleGetAllNhaCungCap() {
+//        try {
+//            ResponseDTO response = new ResponseDTO(true, "Lấy danh sách nhà cung cấp thành công");
+//            response.addData("nhaCungCapList", nhaCungCapService.findAll());
+//            return response;
+//        } catch (Exception e) {
+//            return new ResponseDTO(false, "Lỗi khi lấy danh sách nhà cung cấp: " + e.getMessage());
+//        }
+//    }
+//
+//    private ResponseDTO handleGetNhaCungCapById(RequestDTO request) {
+//        try {
+//            String idNCC = (String) request.getData().get("idNCC");
+//            var nhaCungCapOpt = nhaCungCapService.findById(idNCC);
+//
+//            if (nhaCungCapOpt.isPresent()) {
+//                ResponseDTO response = new ResponseDTO(true, "Lấy thông tin nhà cung cấp thành công");
+//                response.addData("nhaCungCap", nhaCungCapOpt.get());
+//                return response;
+//            } else {
+//                return new ResponseDTO(false, "Không tìm thấy nhà cung cấp với ID: " + idNCC);
+//            }
+//        } catch (Exception e) {
+//            return new ResponseDTO(false, "Lỗi khi lấy thông tin nhà cung cấp: " + e.getMessage());
+//        }
+//    }
+//
+//    private ResponseDTO handleSaveNhaCungCap(RequestDTO request) {
+//        try {
+//            Map<String, Object> nhaCungCapData = (Map<String, Object>) request.getData().get("nhaCungCap");
+//            boolean result = nhaCungCapService.save((NhaCungCap) nhaCungCapData);
+//
+//            if (result) {
+//                return new ResponseDTO(true, "Thêm nhà cung cấp thành công");
+//            } else {
+//                return new ResponseDTO(false, "Thêm nhà cung cấp thất bại");
+//            }
+//        } catch (Exception e) {
+//            return new ResponseDTO(false, "Lỗi khi thêm nhà cung cấp: " + e.getMessage());
+//        }
+//    }
+//
+//    private ResponseDTO handleUpdateNhaCungCap(RequestDTO request) {
+//        try {
+//            Map<String, Object> nhaCungCapData = (Map<String, Object>) request.getData().get("nhaCungCap");
+//            boolean result = nhaCungCapService.update((NhaCungCap) nhaCungCapData);
+//
+//            if (result) {
+//                return new ResponseDTO(true, "Cập nhật nhà cung cấp thành công");
+//            } else {
+//                return new ResponseDTO(false, "Cập nhật nhà cung cấp thất bại");
+//            }
+//        } catch (Exception e) {
+//            return new ResponseDTO(false, "Lỗi khi cập nhật nhà cung cấp: " + e.getMessage());
+//        }
+//    }
+//
+//    private ResponseDTO handleDeleteNhaCungCap(RequestDTO request) {
+//        try {
+//            String idNCC = (String) request.getData().get("idNCC");
+//            boolean result = nhaCungCapService.delete(idNCC);
+//
+//            if (result) {
+//                return new ResponseDTO(true, "Xóa nhà cung cấp thành công");
+//            } else {
+//                return new ResponseDTO(false, "Xóa nhà cung cấp thất bại");
+//            }
+//        } catch (Exception e) {
+//            return new ResponseDTO(false, "Lỗi khi xóa nhà cung cấp: " + e.getMessage());
+//        }
+//    }
+
+    // Thêm phương thức xử lý tạo ID tự động
+    private ResponseDTO handleGenerateNhaCungCapId(RequestDTO request) {
+        try {
+            String newId = nhaCungCapService.generateNewId();
+            ResponseDTO response = new ResponseDTO(true, "Tạo ID nhà cung cấp mới thành công");
+            response.addData("idNCC", newId);
+            return response;
+        } catch (Exception e) {
+            return new ResponseDTO(false, "Lỗi khi tạo ID nhà cung cấp mới: " + e.getMessage());
+        }
+    }
+
     // Xử lý Nhà Cung Cấp
     private ResponseDTO handleGetAllNhaCungCap() {
         try {
@@ -563,10 +756,80 @@ public class Server {
         }
     }
 
+    private ResponseDTO handleSearchNhaCungCap(RequestDTO request) {
+        try {
+            String keyword = (String) request.getData().get("keyword");
+            String criteria = (String) request.getData().get("criteria");
+
+            List<NhaCungCap> nhaCungCapList;
+
+            // Tìm kiếm dựa trên tiêu chí
+            if ("ID".equals(criteria)) {
+                // Tìm theo ID - sửa để tìm kiếm một phần của ID
+                nhaCungCapList = nhaCungCapService.findAll().stream()
+                        .filter(ncc -> ncc.getIdNCC().toLowerCase().contains(keyword.toLowerCase()))
+                        .collect(Collectors.toList());
+            } else if ("Tên nhà cung cấp".equals(criteria)) {
+                // Tìm theo tên
+                nhaCungCapList = nhaCungCapService.findByName(keyword);
+            } else if ("Địa chỉ".equals(criteria)) {
+                // Tìm theo địa chỉ
+                nhaCungCapList = nhaCungCapService.findByAddress(keyword);
+            } else {
+                // Tìm tất cả
+                nhaCungCapList = nhaCungCapService.findAll().stream()
+                        .filter(ncc ->
+                                ncc.getIdNCC().toLowerCase().contains(keyword.toLowerCase()) ||
+                                        ncc.getTenNCC().toLowerCase().contains(keyword.toLowerCase()) ||
+                                        ncc.getDiaChi().toLowerCase().contains(keyword.toLowerCase())
+                        )
+                        .collect(Collectors.toList());
+            }
+
+            ResponseDTO response = new ResponseDTO(true, "Tìm kiếm nhà cung cấp thành công");
+            response.addData("nhaCungCapList", nhaCungCapList);
+            return response;
+        } catch (Exception e) {
+            return new ResponseDTO(false, "Lỗi khi tìm kiếm nhà cung cấp: " + e.getMessage());
+        }
+    }
+
+    // Sửa phương thức handleSaveNhaCungCap
     private ResponseDTO handleSaveNhaCungCap(RequestDTO request) {
         try {
             Map<String, Object> nhaCungCapData = (Map<String, Object>) request.getData().get("nhaCungCap");
-            boolean result = nhaCungCapService.save((NhaCungCap) nhaCungCapData);
+
+            // Kiểm tra xem có ID chưa, nếu chưa thì tạo ID mới
+            if (nhaCungCapData.get("idNCC") == null || "".equals(nhaCungCapData.get("idNCC")) || "null".equals(nhaCungCapData.get("idNCC"))) {
+                String newId = nhaCungCapService.generateNewId();
+                nhaCungCapData.put("idNCC", newId);
+            }
+
+            // Kiểm tra ID và số điện thoại trùng lặp
+            String idNCC = (String) nhaCungCapData.get("idNCC");
+            String sdt = (String) nhaCungCapData.get("sdt");
+
+            // Kiểm tra ID trùng lặp
+            Optional<NhaCungCap> existingNCC = nhaCungCapService.findById(idNCC);
+            if (existingNCC.isPresent()) {
+                return new ResponseDTO(false, "ID nhà cung cấp đã tồn tại: " + idNCC);
+            }
+
+            // Kiểm tra số điện thoại trùng lặp
+            List<NhaCungCap> allNCCs = nhaCungCapService.findAll();
+            boolean sdtExists = allNCCs.stream().anyMatch(ncc -> sdt.equals(ncc.getSdt()));
+            if (sdtExists) {
+                return new ResponseDTO(false, "Số điện thoại đã tồn tại: " + sdt);
+            }
+
+            // Tạo đối tượng NhaCungCap từ Map
+            NhaCungCap nhaCungCap = new NhaCungCap();
+            nhaCungCap.setIdNCC(idNCC);
+            nhaCungCap.setTenNCC((String) nhaCungCapData.get("tenNCC"));
+            nhaCungCap.setSdt(sdt);
+            nhaCungCap.setDiaChi((String) nhaCungCapData.get("diaChi"));
+
+            boolean result = nhaCungCapService.save(nhaCungCap);
 
             if (result) {
                 return new ResponseDTO(true, "Thêm nhà cung cấp thành công");
@@ -581,7 +844,28 @@ public class Server {
     private ResponseDTO handleUpdateNhaCungCap(RequestDTO request) {
         try {
             Map<String, Object> nhaCungCapData = (Map<String, Object>) request.getData().get("nhaCungCap");
-            boolean result = nhaCungCapService.update((NhaCungCap) nhaCungCapData);
+
+            String idNCC = (String) nhaCungCapData.get("idNCC");
+            String sdt = (String) nhaCungCapData.get("sdt");
+
+            // Kiểm tra số điện thoại trùng lặp (trừ chính nhà cung cấp này)
+            List<NhaCungCap> allNCCs = nhaCungCapService.findAll();
+            boolean sdtExists = allNCCs.stream()
+                    .filter(ncc -> !ncc.getIdNCC().equals(idNCC)) // Loại trừ chính nhà cung cấp này
+                    .anyMatch(ncc -> sdt.equals(ncc.getSdt()));
+
+            if (sdtExists) {
+                return new ResponseDTO(false, "Số điện thoại đã tồn tại: " + sdt);
+            }
+
+            // Tạo đối tượng NhaCungCap từ Map
+            NhaCungCap nhaCungCap = new NhaCungCap();
+            nhaCungCap.setIdNCC(idNCC);
+            nhaCungCap.setTenNCC((String) nhaCungCapData.get("tenNCC"));
+            nhaCungCap.setSdt(sdt);
+            nhaCungCap.setDiaChi((String) nhaCungCapData.get("diaChi"));
+
+            boolean result = nhaCungCapService.update(nhaCungCap);
 
             if (result) {
                 return new ResponseDTO(true, "Cập nhật nhà cung cấp thành công");
@@ -838,10 +1122,34 @@ public class Server {
         }
     }
 
+//    private ResponseDTO handleCreateTaiKhoan(RequestDTO request) {
+//        try {
+//            @SuppressWarnings("unchecked")
+//            Map<String, Object> taiKhoanData = (Map<String, Object>) request.getData().get("taiKhoan");
+//
+//            boolean result = taiKhoanService.createTaiKhoan(taiKhoanData);
+//
+//            if (result) {
+//                return new ResponseDTO(true, "Tạo tài khoản thành công");
+//            } else {
+//                return new ResponseDTO(false, "Không thể tạo tài khoản");
+//            }
+//        } catch (Exception e) {
+//            LOGGER.log(Level.SEVERE, "Lỗi tạo tài khoản", e);
+//            return new ResponseDTO(false, "Lỗi tạo tài khoản: " + e.getMessage());
+//        }
+//    }
+
     private ResponseDTO handleCreateTaiKhoan(RequestDTO request) {
         try {
             @SuppressWarnings("unchecked")
             Map<String, Object> taiKhoanData = (Map<String, Object>) request.getData().get("taiKhoan");
+
+            // Kiểm tra username đã tồn tại chưa
+            String username = (String) taiKhoanData.get("username");
+            if (taiKhoanService.isUsernameExists(username)) {
+                return new ResponseDTO(false, "Tên đăng nhập đã tồn tại, vui lòng chọn tên đăng nhập khác");
+            }
 
             boolean result = taiKhoanService.createTaiKhoan(taiKhoanData);
 
@@ -853,6 +1161,24 @@ public class Server {
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "Lỗi tạo tài khoản", e);
             return new ResponseDTO(false, "Lỗi tạo tài khoản: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Kiểm tra username đã tồn tại chưa
+     */
+    public boolean isUsernameExists(String username) {
+        try (Session session = Neo4jConfig.getInstance().getSession()) {
+            String query = "MATCH (tk:TaiKhoan {username: $username}) RETURN count(tk) as count";
+            Result result = session.run(query, Map.of("username", username));
+
+            if (result.hasNext()) {
+                Record record = result.next();
+                int count = record.get("count").asInt();
+                return count > 0;
+            }
+
+            return false;
         }
     }
 
@@ -873,25 +1199,203 @@ public class Server {
         }
     }
 
+//    private ResponseDTO handleSaveNhanVien(RequestDTO request) {
+//        try {
+//            Map<String, Object> nhanVienData = (Map<String, Object>) request.getData().get("nhanVien");
+//            boolean result = nhanVienService.save((NhanVien) nhanVienData);
+//
+//            if (result) {
+//                return new ResponseDTO(true, "Thêm nhân viên thành công");
+//            } else {
+//                return new ResponseDTO(false, "Thêm nhân viên thất bại");
+//            }
+//        } catch (Exception e) {
+//            return new ResponseDTO(false, "Lỗi khi thêm nhân viên: " + e.getMessage());
+//        }
+//    }
+
+//    private ResponseDTO handleSaveNhanVien(RequestDTO request) {
+//        try {
+//            Map<String, Object> nhanVienData = (Map<String, Object>) request.getData().get("nhanVien");
+//
+//            // Tạo đối tượng NhanVien từ Map
+//            NhanVien nhanVien = new NhanVien();
+//
+//            // Tạo ID mới nếu chưa có
+//            String idNV = (String) nhanVienData.get("idNV");
+//            if (idNV == null || idNV.isEmpty()) {
+//                idNV = nhanVienService.generateNewId();
+//                nhanVien.setIdNV(idNV);
+//            } else {
+//                // Kiểm tra ID đã tồn tại chưa
+//                Optional<NhanVien> existingNV = nhanVienService.findById(idNV);
+//                if (existingNV.isPresent()) {
+//                    return new ResponseDTO(false, "ID nhân viên đã tồn tại: " + idNV);
+//                }
+//                nhanVien.setIdNV(idNV);
+//            }
+//
+//            // Thiết lập các thuộc tính khác
+//            nhanVien.setHoTen((String) nhanVienData.get("hoTen"));
+//            nhanVien.setSdt((String) nhanVienData.get("sdt"));
+//            nhanVien.setEmail((String) nhanVienData.get("email"));
+//            nhanVien.setGioiTinh((String) nhanVienData.get("gioiTinh"));
+//
+//            // Xử lý namSinh (đảm bảo là Integer)
+//            Object namSinhObj = nhanVienData.get("namSinh");
+//            if (namSinhObj instanceof Integer) {
+//                nhanVien.setNamSinh((Integer) namSinhObj);
+//            } else if (namSinhObj instanceof Double) {
+//                nhanVien.setNamSinh(((Double) namSinhObj).intValue());
+//            } else if (namSinhObj instanceof String) {
+//                try {
+//                    nhanVien.setNamSinh(Integer.parseInt((String) namSinhObj));
+//                } catch (NumberFormatException e) {
+//                    return new ResponseDTO(false, "Năm sinh không hợp lệ");
+//                }
+//            }
+//
+//            // Thiết lập ngày vào làm là ngày hiện tại nếu không có
+//            if (nhanVienData.get("ngayVaoLam") == null) {
+//                nhanVien.setNgayVaoLam(LocalDate.now());
+//            } else if (nhanVienData.get("ngayVaoLam") instanceof String) {
+//                nhanVien.setNgayVaoLam(LocalDate.parse((String) nhanVienData.get("ngayVaoLam")));
+//            }
+//
+//            boolean result = nhanVienService.save(nhanVien);
+//
+//            if (result) {
+//                ResponseDTO response = new ResponseDTO(true, "Thêm nhân viên thành công");
+//                response.addData("idNV", idNV);
+//                return response;
+//            } else {
+//                return new ResponseDTO(false, "Thêm nhân viên thất bại");
+//            }
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//            return new ResponseDTO(false, "Lỗi khi thêm nhân viên: " + e.getMessage());
+//        }
+//    }
+
     private ResponseDTO handleSaveNhanVien(RequestDTO request) {
         try {
             Map<String, Object> nhanVienData = (Map<String, Object>) request.getData().get("nhanVien");
-            boolean result = nhanVienService.save((NhanVien) nhanVienData);
+
+            // Tạo đối tượng NhanVien từ Map
+            NhanVien nhanVien = new NhanVien();
+
+            // Tạo ID mới nếu chưa có
+            String idNV = (String) nhanVienData.get("idNV");
+            if (idNV == null || idNV.isEmpty()) {
+                idNV = nhanVienService.generateNewId();
+                nhanVien.setIdNV(idNV);
+            } else {
+                // Kiểm tra ID đã tồn tại chưa
+                Optional<NhanVien> existingNV = nhanVienService.findById(idNV);
+                if (existingNV.isPresent()) {
+                    return new ResponseDTO(false, "ID nhân viên đã tồn tại: " + idNV);
+                }
+                nhanVien.setIdNV(idNV);
+            }
+
+            // Thiết lập các thuộc tính khác
+            nhanVien.setHoTen((String) nhanVienData.get("hoTen"));
+            nhanVien.setSdt((String) nhanVienData.get("sdt"));
+            nhanVien.setEmail((String) nhanVienData.get("email"));
+            nhanVien.setGioiTinh((String) nhanVienData.get("gioiTinh"));
+
+            // Xử lý namSinh (đảm bảo là Integer)
+            Object namSinhObj = nhanVienData.get("namSinh");
+            if (namSinhObj instanceof Integer) {
+                nhanVien.setNamSinh((Integer) namSinhObj);
+            } else if (namSinhObj instanceof Double) {
+                nhanVien.setNamSinh(((Double) namSinhObj).intValue());
+            } else if (namSinhObj instanceof String) {
+                try {
+                    nhanVien.setNamSinh(Integer.parseInt((String) namSinhObj));
+                } catch (NumberFormatException e) {
+                    return new ResponseDTO(false, "Năm sinh không hợp lệ");
+                }
+            }
+
+            // Thiết lập ngày vào làm là ngày hiện tại nếu không có
+            if (nhanVienData.get("ngayVaoLam") == null) {
+                nhanVien.setNgayVaoLam(LocalDate.now());
+            } else if (nhanVienData.get("ngayVaoLam") instanceof String) {
+                nhanVien.setNgayVaoLam(LocalDate.parse((String) nhanVienData.get("ngayVaoLam")));
+            }
+
+            boolean result = nhanVienService.save(nhanVien);
 
             if (result) {
-                return new ResponseDTO(true, "Thêm nhân viên thành công");
+                ResponseDTO response = new ResponseDTO(true, "Thêm nhân viên thành công");
+                response.addData("idNV", idNV);
+                return response;
             } else {
                 return new ResponseDTO(false, "Thêm nhân viên thất bại");
             }
         } catch (Exception e) {
+            e.printStackTrace();
             return new ResponseDTO(false, "Lỗi khi thêm nhân viên: " + e.getMessage());
         }
     }
 
+//    private ResponseDTO handleUpdateNhanVien(RequestDTO request) {
+//        try {
+//            Map<String, Object> nhanVienData = (Map<String, Object>) request.getData().get("nhanVien");
+//            boolean result = nhanVienService.update((NhanVien) nhanVienData);
+//
+//            if (result) {
+//                return new ResponseDTO(true, "Cập nhật nhân viên thành công");
+//            } else {
+//                return new ResponseDTO(false, "Cập nhật nhân viên thất bại");
+//            }
+//        } catch (Exception e) {
+//            return new ResponseDTO(false, "Lỗi khi cập nhật nhân viên: " + e.getMessage());
+//        }
+//    }
+
     private ResponseDTO handleUpdateNhanVien(RequestDTO request) {
         try {
             Map<String, Object> nhanVienData = (Map<String, Object>) request.getData().get("nhanVien");
-            boolean result = nhanVienService.update((NhanVien) nhanVienData);
+
+            // Tạo đối tượng NhanVien từ Map thay vì ép kiểu trực tiếp
+            NhanVien nhanVien = new NhanVien();
+
+            // Lấy ID nhân viên (bắt buộc phải có khi cập nhật)
+            String idNV = (String) nhanVienData.get("idNV");
+            if (idNV == null || idNV.isEmpty()) {
+                return new ResponseDTO(false, "ID nhân viên không được để trống khi cập nhật");
+            }
+            nhanVien.setIdNV(idNV);
+
+            // Thiết lập các thuộc tính khác
+            nhanVien.setHoTen((String) nhanVienData.get("hoTen"));
+            nhanVien.setSdt((String) nhanVienData.get("sdt"));
+            nhanVien.setEmail((String) nhanVienData.get("email"));
+            nhanVien.setGioiTinh((String) nhanVienData.get("gioiTinh"));
+
+            // Xử lý namSinh (có thể là Integer hoặc Double từ JSON)
+            Object namSinhObj = nhanVienData.get("namSinh");
+            if (namSinhObj instanceof Integer) {
+                nhanVien.setNamSinh((Integer) namSinhObj);
+            } else if (namSinhObj instanceof Double) {
+                nhanVien.setNamSinh(((Double) namSinhObj).intValue());
+            } else if (namSinhObj instanceof String) {
+                try {
+                    nhanVien.setNamSinh(Integer.parseInt((String) namSinhObj));
+                } catch (NumberFormatException e) {
+                    return new ResponseDTO(false, "Năm sinh không hợp lệ");
+                }
+            }
+
+            // Thiết lập ngày vào làm nếu có
+            Object ngayVaoLamObj = nhanVienData.get("ngayVaoLam");
+            if (ngayVaoLamObj != null && ngayVaoLamObj instanceof String) {
+                nhanVien.setNgayVaoLam(LocalDate.parse((String) ngayVaoLamObj));
+            }
+
+            boolean result = nhanVienService.update(nhanVien);
 
             if (result) {
                 return new ResponseDTO(true, "Cập nhật nhân viên thành công");
@@ -899,6 +1403,7 @@ public class Server {
                 return new ResponseDTO(false, "Cập nhật nhân viên thất bại");
             }
         } catch (Exception e) {
+            e.printStackTrace();
             return new ResponseDTO(false, "Lỗi khi cập nhật nhân viên: " + e.getMessage());
         }
     }
@@ -916,6 +1421,153 @@ public class Server {
         } catch (Exception e) {
             return new ResponseDTO(false, "Lỗi khi xóa nhân viên: " + e.getMessage());
         }
+    }
+
+    // Thêm các phương thức xử lý mới vào Server.java
+
+    private ResponseDTO handleGenerateNhanVienOTP(RequestDTO request) {
+        try {
+            String idNV = (String) request.getData().get("idNV");
+            String method = (String) request.getData().getOrDefault("method", "email"); // Mặc định là email
+
+            int otpValue = nhanVienService.generateOTP(idNV, method);
+
+            if (otpValue > 0) {
+                ResponseDTO response = new ResponseDTO(true, "Tạo OTP thành công");
+                response.addData("otp", String.valueOf(otpValue));
+                return response;
+            } else {
+                return new ResponseDTO(false, "Tạo OTP thất bại");
+            }
+        } catch (Exception e) {
+            return new ResponseDTO(false, "Lỗi khi tạo OTP: " + e.getMessage());
+        }
+    }
+
+    private ResponseDTO handleVerifyNhanVienOTP(RequestDTO request) {
+        try {
+            String idNV = (String) request.getData().get("idNV");
+            String otp = (String) request.getData().get("maOTP");
+            boolean result = nhanVienService.verifyOTP(idNV, otp);
+
+            if (result) {
+                return new ResponseDTO(true, "Xác thực OTP thành công");
+            } else {
+                return new ResponseDTO(false, "Xác thực OTP thất bại");
+            }
+        } catch (Exception e) {
+            return new ResponseDTO(false, "Lỗi khi xác thực OTP: " + e.getMessage());
+        }
+    }
+
+//    private ResponseDTO handleResetPassword(RequestDTO request) {
+//        try {
+//            String idNV = (String) request.getData().get("idNV");
+//
+//            // Tạo mật khẩu mới ngẫu nhiên
+//            String newPassword = generateRandomPassword();
+//
+//            // Cập nhật mật khẩu trong cơ sở dữ liệu
+//            boolean result = taiKhoanService.resetPassword(idNV, newPassword);
+//
+//            if (result) {
+//                // Lấy thông tin nhân viên
+//                Optional<NhanVien> nhanVienOpt = nhanVienService.findById(idNV);
+//                if (nhanVienOpt.isPresent()) {
+//                    NhanVien nhanVien = nhanVienOpt.get();
+//
+//                    // Gửi mật khẩu mới qua email
+//                    boolean sent = EmailConfig.getInstance().sendEmail(
+//                            nhanVien.getEmail(),
+//                            "Mật khẩu mới của bạn",
+//                            "<html><body>" +
+//                                    "<h2>Xin chào " + nhanVien.getHoTen() + ",</h2>" +
+//                                    "<p>Mật khẩu mới của bạn là: <strong>" + newPassword + "</strong></p>" +
+//                                    "<p>Vui lòng đổi mật khẩu sau khi đăng nhập.</p>" +
+//                                    "<p>Trân trọng,<br>Nhà thuốc TechnologyMedicine</p>" +
+//                                    "</body></html>"
+//                    );
+//
+//                    if (sent) {
+//                        ResponseDTO response = new ResponseDTO(true, "Đặt lại mật khẩu thành công");
+//                        response.addData("message", "Mật khẩu mới đã được gửi đến email của bạn");
+//                        return response;
+//                    } else {
+//                        return new ResponseDTO(false, "Không thể gửi mật khẩu mới qua email");
+//                    }
+//                } else {
+//                    return new ResponseDTO(false, "Không tìm thấy thông tin nhân viên");
+//                }
+//            } else {
+//                return new ResponseDTO(false, "Đặt lại mật khẩu thất bại");
+//            }
+//        } catch (Exception e) {
+//            return new ResponseDTO(false, "Lỗi khi đặt lại mật khẩu: " + e.getMessage());
+//        }
+//    }
+
+    private ResponseDTO handleResetPassword(RequestDTO request) {
+        try {
+            String idNV = (String) request.getData().get("idNV");
+
+            // Tạo mật khẩu mới ngẫu nhiên
+            String newPassword = generateRandomPassword();
+
+            // Cập nhật mật khẩu trong cơ sở dữ liệu
+            boolean result = taiKhoanService.resetPassword(idNV, newPassword);
+
+            if (result) {
+                // Lấy thông tin nhân viên
+                Optional<NhanVien> nhanVienOpt = nhanVienService.findById(idNV);
+                if (nhanVienOpt.isPresent()) {
+                    NhanVien nhanVien = nhanVienOpt.get();
+
+                    // Kiểm tra email
+                    if (nhanVien.getEmail() == null || nhanVien.getEmail().isEmpty()) {
+                        return new ResponseDTO(false, "Nhân viên không có email, không thể gửi mật khẩu mới");
+                    }
+
+                    // Gửi mật khẩu mới qua email
+                    boolean sent = EmailConfig.getInstance().sendEmail(
+                            nhanVien.getEmail(),
+                            "Mật khẩu mới của bạn",
+                            "<html><body>" +
+                                    "<h2>Xin chào " + nhanVien.getHoTen() + ",</h2>" +
+                                    "<p>Mật khẩu mới của bạn là: <strong>" + newPassword + "</strong></p>" +
+                                    "<p>Vui lòng đổi mật khẩu sau khi đăng nhập.</p>" +
+                                    "<p>Trân trọng,<br>Nhà thuốc TechnologyMedicine</p>" +
+                                    "</body></html>"
+                    );
+
+                    if (sent) {
+                        ResponseDTO response = new ResponseDTO(true, "Đặt lại mật khẩu thành công");
+                        response.addData("message", "Mật khẩu mới đã được gửi đến email của bạn");
+                        return response;
+                    } else {
+                        return new ResponseDTO(false, "Không thể gửi mật khẩu mới qua email");
+                    }
+                } else {
+                    return new ResponseDTO(false, "Không tìm thấy thông tin nhân viên");
+                }
+            } else {
+                return new ResponseDTO(false, "Đặt lại mật khẩu thất bại");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new ResponseDTO(false, "Lỗi khi đặt lại mật khẩu: " + e.getMessage());
+        }
+    }
+
+    // Phương thức tạo mật khẩu ngẫu nhiên
+    private String generateRandomPassword() {
+        String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        StringBuilder sb = new StringBuilder();
+        Random random = new Random();
+        for (int i = 0; i < 8; i++) {
+            int index = random.nextInt(chars.length());
+            sb.append(chars.charAt(index));
+        }
+        return sb.toString();
     }
 
     // Xử lý Tài Khoản
@@ -1118,13 +1770,21 @@ public class Server {
     private ResponseDTO handleGetChiTietHoaDon(RequestDTO request) {
         try {
             String idHD = (String) request.getData().get("idHD");
+            System.out.println("Lấy chi tiết hóa đơn cho idHD: " + idHD);
+
+            // Lấy chi tiết hóa đơn
+            List<Map<String, Object>> chiTietList = hoaDonService.getChiTietHoaDon(idHD);
+            System.out.println("Chi tiết hóa đơn: " + chiTietList);
+
+            // Tạo phản hồi
             ResponseDTO response = new ResponseDTO(true, "Lấy chi tiết hóa đơn thành công");
-            response.addData("chiTietList", hoaDonService.getChiTietHoaDon(idHD));
+            response.addData("chiTietList", chiTietList);
             return response;
         } catch (Exception e) {
             return new ResponseDTO(false, "Lỗi khi lấy chi tiết hóa đơn: " + e.getMessage());
         }
     }
+
 
     private ResponseDTO handleAddChiTietHoaDon(RequestDTO request) {
         try {
